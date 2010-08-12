@@ -650,6 +650,10 @@ size Frame::DrawText(int font_id, const std::wstring &str, const point &pos,
 		sz = font_ptr->draw(str, pos, center, scale);
 	}
 
+	magic_exec();
+
+	check_gl_error();
+
 	return sz;
 }
 

@@ -255,7 +255,7 @@ void MainFrame::PgConnect()
 	}
 
 	//SELECT * FROM wifi_scan_data WHERE station_mac='00:10:e7:a4:46:9d'
-	pg_res_ = PQexec(pg_conn_, "SELECT * FROM wifi_scan_data");
+	pg_res_ = PQexec(pg_conn_, "SELECT * FROM wifi_scan_data WHERE station_mac=\'00:10:e7:a4:46:9d\'");
 
 	if (PQresultStatus(pg_res_) != PGRES_TUPLES_OK)
 	{
@@ -571,11 +571,6 @@ void MainFrame::DrawSimpleCircle(const cartographer::point &pos,
 	double r, double line_width, const cartographer::color &line_color,
 	const cartographer::color &fill_color)
 {
-	const double z = Cartographer->GetActiveZ();
-
-	if (z < 6.0)
-        return;
-
 	/* Сначала заполняем, потом рисуем окружность */
 	for (int n = 0; n < 2; ++n)
 	{
@@ -587,12 +582,12 @@ void MainFrame::DrawSimpleCircle(const cartographer::point &pos,
 		}
 		else
 		{
-			glLineWidth( z >= 6.0 ? line_width : line_width * (z / 6.0) );
+			glLineWidth(line_width);
 			glBegin(GL_LINE_LOOP);
 			glColor4dv(&line_color.r);
 		}
 
-		const double step = M_PI / 60.0;
+		const double step = M_PI / 180.0;
 		for (double a = step / 2.0; a < 2.0 * M_PI; a += step)
 		{
 			double x = r * cos(a);
@@ -704,7 +699,8 @@ void MainFrame::OnMapPaint(double z, int width, int height)
 	printf("\n\n");
 	-*/
 
-	for (int i = 0; i < PQntuples(pg_res_); i++)
+	if (z > 10.0)
+    for (int i = 0; i < PQntuples(pg_res_); i++)
 	{
 		char *mac = PQgetvalue(pg_res_, i, 0);
 		char *power_s = PQgetvalue(pg_res_, i, 3);
@@ -733,17 +729,16 @@ void MainFrame::OnMapPaint(double z, int width, int height)
         double red_k = power_k < 0.5 ? 1.0 : 2.0 * (1.0 - power_k);
         double green_k = power_k < 0.5 ? 2.0 * power_k : 1.0;
 
-        pt_pos.y += 5.0;
-
 		DrawSimpleCircle(pt_pos, 5.0, 2.0,
 			cartographer::color(red_k, green_k, 0.0),
             cartographer::color(red_k, green_k, 0.0, 0.3));
 
-/*-
+        pt_pos.y += 5.0;
+
 		std::wstring str = my::str::to_wstring(mac);
 		cartographer::size sz = Cartographer->DrawText(small_font_,
             str, pt_pos, cartographer::color(1.0, 1.0, 0.0),
-			cartographer::ratio(0.5, 0.0));
+			cartographer::ratio(0.5, 0.0), cartographer::ratio(1.0, 1.0));
 
         pt_pos.y += sz.height;
 
@@ -751,8 +746,7 @@ void MainFrame::OnMapPaint(double z, int width, int height)
         out << L'(' << power << L')';
 		Cartographer->DrawText(small_font_,
             out.str(), pt_pos, cartographer::color(1.0, 1.0, 0.0),
-			cartographer::ratio(0.5, 0.0), cartographer::ratio(0.8, 0.8));
--*/
+			cartographer::ratio(0.5, 0.0), cartographer::ratio(1.0, 1.0));
 	}
 
 #if 0

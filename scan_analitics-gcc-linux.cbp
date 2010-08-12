@@ -60,9 +60,12 @@
 			<Add library="boost_regex" />
 			<Add library="wx_gtk2u_core-2.9" />
 			<Add library="wx_gtk2u_gl-2.9" />
+			<Add library="pq" />
 			<Add directory="/usr/local/lib" />
 			<Add directory="../mylib/gcc_lib" />
 		</Linker>
+		<Unit filename="MainFrame.cpp" />
+		<Unit filename="MainFrame.h" />
 		<Unit filename="cartographer/config.h" />
 		<Unit filename="cartographer/defs.h" />
 		<Unit filename="cartographer/font.cpp" />
@@ -74,15 +77,13 @@
 		<Unit filename="cartographer/image.cpp" />
 		<Unit filename="cartographer/image.h" />
 		<Unit filename="cartographer/raw_image.h" />
-		<Unit filename="scan_analiticsApp.cpp" />
-		<Unit filename="scan_analiticsApp.h" />
-		<Unit filename="MainFrame.cpp" />
-		<Unit filename="MainFrame.h" />
 		<Unit filename="handle_exception.cpp" />
 		<Unit filename="handle_exception.h" />
 		<Unit filename="resource.rc">
 			<Option compilerVar="WINDRES" />
 		</Unit>
+		<Unit filename="scan_analiticsApp.cpp" />
+		<Unit filename="scan_analiticsApp.h" />
 		<Unit filename="stdafx.h">
 			<Option compile="1" />
 			<Option weight="0" />
