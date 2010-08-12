@@ -1,0 +1,15 @@
+syntax: glob
+Debug
+Release
+bin
+obj
+cache
+*.pdb
+*.depend
+*.layout
+*.ncb
+*.suo
+*.ilk
+*.idb
+main.log
+stdafx.h.gch
