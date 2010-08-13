@@ -127,12 +127,8 @@ MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
 		, L"172.16.19.1" /* server_addr - адрес сервера */
 		, L"27543" /* server_port - порт сервера */
 		, 500 /* cache_size - размер кэша (в тайлах) */
-		, L"cache" /* cache_path - путь к кэшу на диске */
 		, false /* only_cache - работать только с кэшем */
 		, L"Google.Спутник" /* init_map - исходная карта (Яндекс.Карта, Яндекс.Спутник, Google.Спутник) */
-		, 2 /* init_z - исходный масштаб (>1) */
-		, 48.48021475 /* init_lat - широта исходной точки */
-		, 135.0719556 /* init_lon - долгота исходной точки */
 		, boost::bind(&MainFrame::OnMapPaint, this, _1, _2, _3) /* on_paint_proc - функция рисования */
 		, 50, 5 /* 0 - нет анимации */
   	);
@@ -234,7 +230,9 @@ MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
 	for (int i = 0; i < count_; ++i)
 		Choice1->Append(names_[i]);
 
-    PgConnect();
+	Cartographer->MoveTo(z_[0], coords_[0]);
+	
+	PgConnect();
 
 	Test();
 }
@@ -525,7 +523,7 @@ void MainFrame::DrawImage(int id, const cartographer::coord &pt)
 	if (id == 0)
 		return;
 
-	cartographer::point pos = Cartographer->GeoToScr(pt);
+	cartographer::point pos = Cartographer->CoordToScreen(pt);
 	const double z = Cartographer->GetActiveZ();
 
 	glColor4d(1.0, 1.0, 1.0, 1.0);
@@ -538,7 +536,7 @@ void MainFrame::DrawCircle(const cartographer::coord &pt,
 {
 	const double z = Cartographer->GetActiveZ();
 
-	cartographer::point pt_pos = Cartographer->GeoToScr(pt);
+	cartographer::point pt_pos = Cartographer->CoordToScreen(pt);
 
 	/* Сначала заполняем, потом рисуем окружность */
 	for (int n = 0; n < 2; ++n)
@@ -560,7 +558,7 @@ void MainFrame::DrawCircle(const cartographer::coord &pt,
 		for (double a = step / 2.0; a < 360.0; a += step)
 		{
 			cartographer::coord ptN = cartographer::Direct(pt, a, r);
-			cartographer::point ptN_pos = Cartographer->GeoToScr(ptN);
+			cartographer::point ptN_pos = Cartographer->CoordToScreen(ptN);
 			glVertex3d(ptN_pos.x, ptN_pos.y, 0);
 		}
 		glEnd();
@@ -640,7 +638,7 @@ cartographer::coord MainFrame::DrawPath(const cartographer::coord &pt,
 
 		/* Получаем новое */
 		ptN = cartographer::Direct(pt, azimuth, d, p_rev_azimuth);
-		ptN_pos = Cartographer->GeoToScr(ptN);
+		ptN_pos = Cartographer->CoordToScreen(ptN);
 
 		/* Проверяем переход с одной стороны карты на другую */
 		if (ptP.lon * ptN.lon < 0.0 && abs(ptN.lon) > 170.0)
@@ -651,8 +649,8 @@ cartographer::coord MainFrame::DrawPath(const cartographer::coord &pt,
 			cartographer::coord ptM_N(mid_lat, ptN.lon < 0.0 ? -180.0 : 180.0);
 			cartographer::coord ptM_P(mid_lat, ptP.lon < 0.0 ? -180.0 : 180.0);
 
-			cartographer::point ptM_N_pos = Cartographer->GeoToScr(ptM_N);
-			cartographer::point ptM_P_pos = Cartographer->GeoToScr(ptM_P);
+			cartographer::point ptM_N_pos = Cartographer->CoordToScreen(ptM_N);
+			cartographer::point ptM_P_pos = Cartographer->CoordToScreen(ptM_P);
 
 			/* Дочерчиваем линию на предыдущей стороне */
 			glVertex3d(ptM_P_pos.x, ptM_P_pos.y, 0);
@@ -665,11 +663,11 @@ cartographer::coord MainFrame::DrawPath(const cartographer::coord &pt,
 
 			#if 0
 			/* Позиция новой точки на обратной стороне карты */
-			cartographer::point ptN_pos_ = Cartographer->GeoToScr( cartographer::coord(
+			cartographer::point ptN_pos_ = Cartographer->CoordToScreen( cartographer::coord(
 				ptN.lat, ptN.lon < 0.0 ? ptN.lon + 360.0 : ptN.lon - 360.0) );
 
 			/* Позиция старой точки на обратной стороне карты */
-			cartographer::point ptP_pos_ = Cartographer->GeoToScr( cartographer::coord(
+			cartographer::point ptP_pos_ = Cartographer->CoordToScreen( cartographer::coord(
 				ptP.lat, ptP.lon < 0.0 ? ptP.lon + 360.0 : ptP.lon - 360.0) );
 
 			/* Дочерчиваем линию на предыдущей стороне */
@@ -798,7 +796,7 @@ void MainFrame::OnMapPaint(double z, int width, int height)
 
 	{
 		cartographer::coord pt = cartographer::DMSToDD( 48,28,48.77, 135,4,19.04 );
-		cartographer::point pt_pos = Cartographer->GeoToScr(pt);
+		cartographer::point pt_pos = Cartographer->CoordToScreen(pt);
 
 		cartographer::size sz
 			= Cartographer->DrawText(big_font_,
@@ -815,7 +813,7 @@ void MainFrame::OnMapPaint(double z, int width, int height)
 
 	{
 		cartographer::coord pt = cartographer::DMSToDD( 55,45,15.01, 37,37,12.14 );
-		cartographer::point pt_pos = Cartographer->GeoToScr(pt);
+		cartographer::point pt_pos = Cartographer->CoordToScreen(pt);
 
 		cartographer::size sz
 			= Cartographer->DrawText(big_font_, L"Москва",
@@ -833,7 +831,7 @@ void MainFrame::OnMapPaint(double z, int width, int height)
 void MainFrame::OnChoice1Select(wxCommandEvent& event)
 {
 	int i = Choice1->GetCurrentSelection();
-	Cartographer->MoveTo(z_[i], coords_[i].lat, coords_[i].lon);
+	Cartographer->MoveTo(z_[i], coords_[i]);
 }
 
 void MainFrame::OnZoomInButtonClick(wxCommandEvent& event)
