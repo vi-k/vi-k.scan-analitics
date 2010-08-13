@@ -12,6 +12,8 @@
 
 #include "cartographer/frame.h"
 
+#include <mylib.h>
+
 //(*Headers(MainFrame)
 #include <wx/sizer.h>
 #include <wx/menu.h>
@@ -25,7 +27,7 @@
 
 #include <libpq-fe.h>
 
-class MainFrame: public wxFrame
+class MainFrame: public wxFrame, my::employer
 {
 	public:
 
@@ -34,6 +36,17 @@ class MainFrame: public wxFrame
 
 	private:
 		cartographer::Frame *Cartographer;
+
+        my::worker::ptr WiFiScan_worker_;
+        int WiFi_sock_;
+        unsigned char WiFi_mac_[6];
+		PGresult *WiFi_data_;
+		mutex WiFi_mutex_;
+
+        void WiFiScanProc(my::worker::ptr this_worker);
+        void UpdateWiFiData();
+
+
 		int images_[11];
 
 		/* "Быстрые" точки */
@@ -45,10 +58,12 @@ class MainFrame: public wxFrame
 		int big_font_;
 		int small_font_;
 
-		PGconn *pg_conn_;
-		PGresult *pg_res_;
 
-		void PgConnect();
+		PGconn *pg_conn_;
+		mutex pg_mutex_;
+
+		bool PgConnect();
+
 
 		void Test(); /* Тестирование функций Картографера */
 
@@ -81,6 +96,7 @@ class MainFrame: public wxFrame
 		void OnZoomInButtonClick(wxCommandEvent& event);
 		void OnZoomOutButtonClick(wxCommandEvent& event);
 		void OnAnchorButtonClick(wxCommandEvent& event);
+		void OnWiFiScanButtonClicked(wxCommandEvent& event);
 		//*)
 
 		//(*Identifiers(MainFrame)
@@ -94,10 +110,12 @@ class MainFrame: public wxFrame
 		static const long ID_ZOOMIN;
 		static const long ID_ZOOMOUT;
 		static const long ID_ANCHOR;
+		static const long ID_WIFISCAN;
 		static const long ID_TOOLBAR1;
 		//*)
 
 		//(*Declarations(MainFrame)
+		wxToolBarToolBase* ToolBarItem4;
 		wxToolBar* ToolBar1;
 		wxToolBarToolBase* ToolBarItem3;
 		wxPanel* Panel1;

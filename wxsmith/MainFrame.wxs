@@ -81,6 +81,12 @@
 				<handler function="OnAnchorButtonClick" entry="EVT_TOOL" />
 				<check>1</check>
 			</object>
+			<object class="tool" name="ID_WIFISCAN" variable="ToolBarItem4" member="yes">
+				<label>WiFiScan</label>
+				<bitmap>images/wifi.png</bitmap>
+				<handler function="OnWiFiScanButtonClicked" entry="EVT_TOOL" />
+				<check>1</check>
+			</object>
 		</object>
 	</object>
 </wxsmith>
