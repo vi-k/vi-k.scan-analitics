@@ -46,18 +46,21 @@ class MainFrame: public wxFrame, my::employer
         void WiFiScanProc(my::worker::ptr this_worker);
         void UpdateWiFiData();
 
+		/* Шрифты */
+		int big_font_;
+		int small_font_;
 
+		/* Изображения */
 		int images_[11];
+		int green_mark16_id_;
+		int red_mark16_id_;
+		int yellow_mark16_id_;
 
 		/* "Быстрые" точки */
 		static const int count_ = 9;
 		wxString names_[count_];
 		int z_[count_];
 		cartographer::coord coords_[count_];
-
-		int big_font_;
-		int small_font_;
-
 
 		PGconn *pg_conn_;
 		mutex pg_mutex_;
@@ -69,7 +72,7 @@ class MainFrame: public wxFrame, my::employer
 
 		void OnMapPaint(double z, int width, int height);
 
-		void DrawImage(int id, const cartographer::coord &pt);
+		void DrawImage(int id, const cartographer::coord &pt, double alpha = 1.0);
         void DrawSimpleCircle(const cartographer::point &pos,
             double r, double line_width, const cartographer::color &line_color,
             const cartographer::color &fill_color);

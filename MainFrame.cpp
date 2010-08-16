@@ -20,6 +20,10 @@
 #include <wx/string.h>
 //*)
 
+#include "images/green_mark16.c"
+#include "images/red_mark16.c"
+#include "images/yellow_mark16.c"
+
 //#include <wx/filename.h>
 
 //(*IdInit(MainFrame)
@@ -109,13 +113,11 @@ MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
 
     setlocale(LC_NUMERIC, "C");
 
-	/*-
 	{
-	wxIcon FrameIcon;
-	FrameIcon.CopyFromBitmap(wxArtProvider::GetBitmap(wxART_MAKE_ART_ID_FROM_STR(_T("wxART_TIP")),wxART_FRAME_ICON));
-	SetIcon(FrameIcon);
+		wxIcon FrameIcon;
+		FrameIcon.CopyFromBitmap(wxBitmap(wxImage(_T("images/cartographer.png"))));
+		SetIcon(FrameIcon);
 	}
-	-*/
 
 	SetClientSize(400, 400);
 	Maximize(true);
@@ -157,6 +159,11 @@ MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
 	/* Текущая карта */
 	cartographer::map_info map = Cartographer->GetActiveMapInfo();
 	ComboBox1->SetValue(map.name);
+
+	/* Изображения */
+	green_mark16_id_ = Cartographer->LoadImageFromC(green_mark16);
+	red_mark16_id_ = Cartographer->LoadImageFromC(red_mark16);
+	yellow_mark16_id_ = Cartographer->LoadImageFromC(yellow_mark16);
 
 
 	/* Метки - не забыть изменить размер массива (!),
@@ -240,14 +247,12 @@ MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
 	memset(WiFi_mac_, 0, sizeof(WiFi_mac_));
 	WiFiScan_worker_ = new_worker( L"WiFiScan_worker_");
 
-	/*-
 	WiFi_mac_[0] = 0;
 	WiFi_mac_[1] = 0x10;
 	WiFi_mac_[2] = 0xE7;
 	WiFi_mac_[3] = 0xA4;
 	WiFi_mac_[4] = 0x46;
 	WiFi_mac_[5] = 0x9D;
-	-*/
 
 	UpdateWiFiData();
 
@@ -314,235 +319,6 @@ bool MainFrame::PgConnect()
 	return true;
 }
 
-void MainFrame::Test()
-{
-	using cartographer::coord;
-
-	double d, d2;
-	double a1, a2;
-	double eps_in_m = 0.01;
-
-	/* Точки-антиподы */
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.0, 180.0), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.0, -180.0), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(10.0, 0.0), coord(-10.0, 180.0), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(20.0, 0.0), coord(-20.0, 180.0), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(30.0, 0.0), coord(-30.0, 180.0), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(40.0, 0.0), coord(-40.0, 180.0), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(50.0, 0.0), coord(-50.0, 180.0), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(60.0, 0.0), coord(-60.0, 180.0), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(70.0, 0.0), coord(-70.0, 180.0), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(80.0, 0.0), coord(-80.0, 180.0), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(90.0, 0.0), coord(-90.0, 180.0), &a1, &a2, eps_in_m );
-
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.0, 170.0), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.0, 177.0), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.0, 178.0), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.0, 179.0), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 179.3964), coord(0.0, 180.0), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 179.3965), coord(0.0, 180.0), &a1, &a2, eps_in_m );
-
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.0, 179.3964), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.0, 179.3965), &a1, &a2, eps_in_m );
-
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.0, 179.3966), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.0, 179.397), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.0, 179.40), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.0, 179.41), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.0, 179.42), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.0, 179.43), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.0, 179.44), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.0, 179.45), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.0, 179.46), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.0, 179.47), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.0, 179.48), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.0, 179.49), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.0, 179.50), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.0, 179.55), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.0, 179.60), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.0, 179.65), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.0, 179.70), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.0, 179.75), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.0, 179.80), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.0, 179.85), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.0, 179.90), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.0, 179.95), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.0, 179.96), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.0, 179.97), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.0, 179.98), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.0, 179.99), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.0, 180.0), &a1, &a2, eps_in_m );
-
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.1, 179.30), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.1, 179.31), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.1, 179.32), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.1, 179.33), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.1, 179.34), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.1, 179.341), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.1, 179.342), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.1, 179.343), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.1, 179.344), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.1, 179.345), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.1, 179.346), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.1, 179.347), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.1, 179.348), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.1, 179.349), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.1, 179.35), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.1, 179.36), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.1, 179.37), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.1, 179.38), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.1, 179.39), &a1, &a2, eps_in_m );
-
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.1, 179.40), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.1, 179.41), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.1, 179.42), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.1, 179.43), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.1, 179.44), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.1, 179.45), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.1, 179.46), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.1, 179.47), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.1, 179.48), &a1, &a2, eps_in_m );
-
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.1, 179.50), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.1, 179.60), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.1, 179.70), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.1, 179.80), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.1, 179.90), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.1, 180.00), &a1, &a2, eps_in_m );
-
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.10, 179.99), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.20, 179.99), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.30, 179.99), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.40, 179.99), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.50, 179.99), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.60, 179.99), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.70, 179.99), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.80, 179.99), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.90, 179.99), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(1.00, 179.99), &a1, &a2, eps_in_m );
-
-	/* Близкие точки */
-	{
-		double eps_in_m = 0.0000000001;
-		d = cartographer::Inverse(
-			cartographer::DMSToDD( 48,29,41.65, 135,6,4.73 ),
-			cartographer::DMSToDD( 48,29,41.43, 135,6,4.29 ), &a1, &a2, eps_in_m );
-		d2 = cartographer::FastDistance(
-			cartographer::DMSToDD( 48,29,41.65, 135,6,4.73 ),
-			cartographer::DMSToDD( 48,29,41.43, 135,6,4.29 ));
-	}
-
-	coord pt = cartographer::Direct(
-		cartographer::DMSToDD( 48,29,41.65, 135,6,4.73 ),
-		233.04672768896376, 11.303987628995905);
-
-	/* Точки по стране */
-	{
-		double eps_in_m = 0.0000001;
-		/* Хабаровск - Москва */
-		d = cartographer::Inverse(
-			cartographer::DMSToDD( 48,28,48.77, 135,4,19.04 ),
-			cartographer::DMSToDD( 55,45,15.01, 37,37,12.14 ), &a1, &a2, eps_in_m );
-		d2 = cartographer::FastDistance(
-			cartographer::DMSToDD( 48,28,48.77, 135,4,19.04 ),
-			cartographer::DMSToDD( 55,45,15.01, 37,37,12.14 ));
-
-		coord pt = cartographer::Direct(
-			cartographer::DMSToDD( 48,28,48.77, 135,4,19.04 ),
-			317.193349, 6158610.810);
-
-		/* Хабаровск - Магадан */
-		d = cartographer::Inverse(
-			cartographer::DMSToDD( 48,28,48.77, 135,4,19.04 ),
-			cartographer::DMSToDD( 59,33,41.79, 150,50,19.87 ), &a1, &a2, eps_in_m );
-		d2 = cartographer::FastDistance(
-			cartographer::DMSToDD( 48,28,48.77, 135,4,19.04 ),
-			cartographer::DMSToDD( 59,33,41.79, 150,50,19.87 ));
-
-		/* Хабаровск - Якутск */
-		d = cartographer::Inverse(
-			cartographer::DMSToDD( 48,28,48.77, 135,4,19.04 ),
-			cartographer::DMSToDD( 62,4,30.33,  129,45,24.39 ), &a1, &a2, eps_in_m );
-		d2 = cartographer::FastDistance(
-			cartographer::DMSToDD( 48,28,48.77, 135,4,19.04 ),
-			cartographer::DMSToDD( 62,4,30.33,  129,45,24.39 ));
-
-		/* Магадан - Якутск */
-		d = cartographer::Inverse(
-			cartographer::DMSToDD( 59,33,41.79, 150,50,19.87 ),
-			cartographer::DMSToDD( 62,4,30.33,  129,45,24.39 ), &a1, &a2, eps_in_m );
-		d2 = cartographer::FastDistance(
-			cartographer::DMSToDD( 59,33,41.79, 150,50,19.87 ),
-			cartographer::DMSToDD( 62,4,30.33,  129,45,24.39 ));
-
-		/* Хабаровск - Бикин */
-		d = cartographer::Inverse(
-			cartographer::DMSToDD( 48,28,48.77, 135,4,19.04 ),
-			cartographer::DMSToDD( 46,48,47.59, 134,14,55.71 ), &a1, &a2, eps_in_m );
-		d2 = cartographer::FastDistance(
-			cartographer::DMSToDD( 48,28,48.77, 135,4,19.04 ),
-			cartographer::DMSToDD( 46,48,47.59, 134,14,55.71 ));
-
-		/* Хабаровск - Биробиджан */
-		d = cartographer::Inverse(
-			cartographer::DMSToDD( 48,28,48.77, 135,4,19.04 ),
-			cartographer::DMSToDD( 48,47,52.55, 132,55,5.13 ), &a1, &a2, eps_in_m );
-		d2 = cartographer::FastDistance(
-			cartographer::DMSToDD( 48,28,48.77, 135,4,19.04 ),
-			cartographer::DMSToDD( 48,47,52.55, 132,55,5.13 ));
-
-		/* Хабаровск - Владивосток */
-		d = cartographer::Inverse(
-			cartographer::DMSToDD( 48,28,48.77, 135,4,19.04 ),
-			cartographer::DMSToDD( 43,7,17.95,  131,55,34.4 ), &a1, &a2, eps_in_m );
-		d2 = cartographer::FastDistance(
-			cartographer::DMSToDD( 48,28,48.77, 135,4,19.04 ),
-			cartographer::DMSToDD( 43,7,17.95,  131,55,34.4 ));
-
-		/* Владивосток - Хабаровск */
-		d = cartographer::Inverse(
-			cartographer::DMSToDD( 43,7,17.95,  131,55,34.4 ),
-			cartographer::DMSToDD( 48,28,48.77, 135,4,19.04 ), &a1, &a2, eps_in_m );
-		d2 = cartographer::FastDistance(
-			cartographer::DMSToDD( 43,7,17.95,  131,55,34.4 ),
-			cartographer::DMSToDD( 48,28,48.77, 135,4,19.04 ));
-	}
-
-	/*-
-	//double dB = cartographer::Inverse( coord(-90.0, 0.0), coord(90.0, 0.0), &a1, &a2, eps_in_m );
-	//double dC = cartographer::Inverse( coord(45.0, 135.0), coord(-45.0, -45.0), &a1, &a2, eps_in_m );
-
-	double d1 = cartographer::Inverse( coords_[2], coords_[0], &a1, &a2, eps_in_m );
-	double d2 = cartographer::Inverse( coord(0.0, 0.0), coord(90.0, 0.0), &a1, &a2, eps_in_m );
-	-*/
-
-	/*-
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.0, 90.0), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 170.0), coord(0.0, 180.0), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 179.0), coord(0.0, 180.0), &a1, &a2, eps_in_m );
-
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.0, 170.0), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.0, 177.0), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.0, 178.0), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 0.0), coord(0.0, 179.0), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 179.3964), coord(0.0, 180.0), &a1, &a2, eps_in_m );
-	d = cartographer::Inverse( coord(0.0, 179.3965), coord(0.0, 180.0), &a1, &a2, eps_in_m );
-
-	double d3 = cartographer::Inverse( coord(0.0, 0.0), coord(0.0, 179.3964), &a1, &a2, eps_in_m );
-	double d3a= cartographer::Inverse( coord(0.0, 0.0), coord(0.0, 179.3965), &a1, &a2, eps_in_m );
-	-*/
-
-	/*-
-	double d4 = cartographer::Inverse( coord(0.0, 0.0), coord(0.0, 90.0), &a1, &a2, eps_in_m );
-	double d5 = cartographer::Inverse( coord(0.0, 0.0), coord(45.0, 90.0), &a1, &a2, eps_in_m );
-	double d6 = cartographer::Inverse( coord(0.0, 0.0), coord(45.0, -90.0), &a1, &a2, eps_in_m );
-	double d7 = cartographer::Inverse( coord(0.0, 0.0), coord(-45.0, 90.0), &a1, &a2, eps_in_m );
-	double d8 = cartographer::Inverse( coord(0.0, 0.0), coord(-45.0, -90.0), &a1, &a2, eps_in_m );
-	-*/
-
-	return;
-}
-
 void MainFrame::OnQuit(wxCommandEvent& event)
 {
 	Close();
@@ -559,7 +335,7 @@ void MainFrame::OnComboBox1Select(wxCommandEvent& event)
 	Cartographer->SetActiveMapByName(str);
 }
 
-void MainFrame::DrawImage(int id, const cartographer::coord &pt)
+void MainFrame::DrawImage(int id, const cartographer::coord &pt, double alpha)
 {
 	if (id == 0)
 		return;
@@ -567,7 +343,7 @@ void MainFrame::DrawImage(int id, const cartographer::coord &pt)
 	cartographer::point pos = Cartographer->CoordToScreen(pt);
 	const double z = Cartographer->GetActiveZ();
 
-	glColor4d(1.0, 1.0, 1.0, 1.0);
+	glColor4d(1.0, 1.0, 1.0, alpha);
 	Cartographer->DrawImage(id, pos, z < 6.0 ? z / 6.0 : 1.0);
 }
 
@@ -745,7 +521,7 @@ void MainFrame::OnMapPaint(double z, int width, int height)
 		{
 			for (int i = 0; i < PQntuples(WiFi_data_); i++)
 			{
-				char *mac = PQgetvalue(WiFi_data_, i, 0);
+				//char *mac = PQgetvalue(WiFi_data_, i, 0);
 				char *power_s = PQgetvalue(WiFi_data_, i, 3);
 				char *lat_s = PQgetvalue(WiFi_data_, i, 5);
 				char *lon_s = PQgetvalue(WiFi_data_, i, 6);
@@ -767,12 +543,16 @@ void MainFrame::OnMapPaint(double z, int width, int height)
 				if (power_k > 1.0)
 					power_k = 1.0;
 
-				double red_k = power_k < 0.5 ? 1.0 : 2.0 * (1.0 - power_k);
-				double green_k = power_k < 0.5 ? 2.0 * power_k : 1.0;
-
-				DrawSimpleCircle(pos, 5.0, 2.0,
-					cartographer::color(red_k, green_k, 0.0),
-					cartographer::color(red_k, green_k, 0.0, 0.3));
+				if (power_k < 0.5)
+				{
+					DrawImage(green_mark16_id_, pt);
+					DrawImage(yellow_mark16_id_, pt, 2.0 * power_k);
+				}
+				else
+				{
+					DrawImage(yellow_mark16_id_, pt);
+					DrawImage(red_mark16_id_, pt, 2.0 * (power_k - 0.5));
+				}
 
 				/*-
 				pos.y += 5.0;
@@ -793,86 +573,6 @@ void MainFrame::OnMapPaint(double z, int width, int height)
 			}
 		}
 	}
-
-#if 0
-	//for (int i = 0; i < count_; ++i)
-	//	DrawImage(images_[i], coords_[i]);
-
-	/* Путь от Хабаровска до Москвы */
-	{
-		cartographer::coord pt1 = cartographer::DMSToDD( 48,28,48.77, 135,4,19.04 );
-		cartographer::coord pt2 = cartographer::DMSToDD( 55,45,15.01, 37,37,12.14 );
-
-		DrawPath(pt1, pt2, 4.0, cartographer::color(1.0, 0.5, 0.0));
-
-		DrawImage(images_[5], pt1);
-		DrawImage(images_[5], pt2);
-
-		/* Круг, примерно в центре пути */
-		cartographer::coord pt = cartographer::DMSToDD( 62,57,0.84, 91,18,8.73 );
-		DrawCircle(pt, 1000000.0, 4.0,
-			cartographer::color(1.0, 0.0, 0.0), cartographer::color(1.0, 0.0, 0.0, 0.3));
-		DrawImage(images_[9], pt);
-	}
-
-	DrawPath( cartographer::DMSToDD( 48,28,48.77, 135,4,19.04 ),
-		-30.0, 40000000.0, 4.0, cartographer::color(0.0, 1.0, 0.0));
-
-	DrawPath( cartographer::DMSToDD( 48,28,48.77, 135,4,19.04 ),
-		90.0, 40000000.0, 4.0, cartographer::color(0.0, 0.5, 1.0));
-
-	DrawImage(images_[9], cartographer::DMSToDD( -54,39,51.45, -65,13,31.03 ));
-
-	DrawImage(images_[9], cartographer::DMSToDD( 48,28,43.0, 135,4,5.0 ));
-
-
-	DrawCircle( cartographer::DMSToDD( 48,28,36.0, 135,3,53.0 ), 10.0, 2.0,
-		cartographer::color(1.0, 0.0, 0.0), cartographer::color(1.0, 0.0, 0.0, 0.5));
-
-	DrawCircle( cartographer::DMSToDD( 48,28,38.0, 135,3,58.0 ), 13.3, 2.0,
-		cartographer::color(1.0, 0.67, 0.0), cartographer::color(1.0, 0.67, 0.0, 0.5));
-
-	DrawCircle( cartographer::DMSToDD( 48,28,40.0, 135,4,2.0 ), 16.7, 2.0,
-		cartographer::color(0.67, 1.0, 0.0), cartographer::color(0.67, 1.0, 0.0, 0.5));
-
-	DrawCircle( cartographer::DMSToDD( 48,28,41.5, 135,4,5.5 ), 20.0, 2.0,
-		cartographer::color(0.0, 1.0, 0.0), cartographer::color(0.0, 1.0, 0.0, 0.5));
-
-	DrawCircle( cartographer::DMSToDD( 48,28,43.5, 135,4,9.0 ), 16.7, 2.0,
-		cartographer::color(0.67, 1.0, 0.0), cartographer::color(0.67, 1.0, 0.0, 0.5));
-
-	{
-		cartographer::coord pt = cartographer::DMSToDD( 48,28,48.77, 135,4,19.04 );
-		cartographer::point pt_pos = Cartographer->CoordToScreen(pt);
-
-		cartographer::size sz
-			= Cartographer->DrawText(big_font_,
-				L"Хабаровск",
-				pt_pos, cartographer::color(1.0, 1.0, 1.0),
-				cartographer::ratio(0.5, 0.0));
-
-		pt_pos.y += sz.height;
-		Cartographer->DrawText(small_font_,
-			L"(столица Дальнего Востока ΘΚΛΜΝ Ёё)",
-			pt_pos, cartographer::color(1.0, 1.0, 1.0),
-			cartographer::ratio(0.5, 0.0));
-	}
-
-	{
-		cartographer::coord pt = cartographer::DMSToDD( 55,45,15.01, 37,37,12.14 );
-		cartographer::point pt_pos = Cartographer->CoordToScreen(pt);
-
-		cartographer::size sz
-			= Cartographer->DrawText(big_font_, L"Москва",
-				pt_pos, cartographer::color(1.0, 1.0, 0.0),
-				cartographer::ratio(0.5, 0.0), cartographer::ratio(0.8, 0.8));
-
-		pt_pos.y += sz.height;
-		Cartographer->DrawText(small_font_, L"(столица России)",
-			pt_pos, cartographer::color(1.0, 1.0, 0.0),
-			cartographer::ratio(0.5, 0.0), cartographer::ratio(0.8, 0.8));
-	}
-#endif
 }
 
 void MainFrame::OnChoice1Select(wxCommandEvent& event)
