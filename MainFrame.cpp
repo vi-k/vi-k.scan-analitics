@@ -28,7 +28,6 @@
 
 //(*IdInit(MainFrame)
 const long MainFrame::ID_COMBOBOX1 = wxNewId();
-const long MainFrame::ID_CHOICE1 = wxNewId();
 const long MainFrame::ID_PANEL2 = wxNewId();
 const long MainFrame::ID_PANEL1 = wxNewId();
 const long MainFrame::ID_MENU_QUIT = wxNewId();
@@ -71,7 +70,6 @@ MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
 	FlexGridSizer1->AddGrowableRow(1);
 	Panel2 = new wxPanel(this, ID_PANEL2, wxDefaultPosition, wxSize(616,61), wxTAB_TRAVERSAL, _T("ID_PANEL2"));
 	ComboBox1 = new wxComboBox(Panel2, ID_COMBOBOX1, wxEmptyString, wxPoint(8,8), wxSize(208,24), 0, 0, wxCB_READONLY|wxCB_DROPDOWN, wxDefaultValidator, _T("ID_COMBOBOX1"));
-	Choice1 = new wxChoice(Panel2, ID_CHOICE1, wxPoint(232,8), wxSize(192,24), 0, 0, 0, wxDefaultValidator, _T("ID_CHOICE1"));
 	FlexGridSizer1->Add(Panel2, 1, wxALL|wxEXPAND|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 5);
 	Panel1 = new wxPanel(this, ID_PANEL1, wxDefaultPosition, wxSize(616,331), wxTAB_TRAVERSAL, _T("ID_PANEL1"));
 	FlexGridSizer1->Add(Panel1, 1, wxALL|wxEXPAND|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 5);
@@ -95,14 +93,13 @@ MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
 	ToolBar1 = new wxToolBar(this, ID_TOOLBAR1, wxDefaultPosition, wxDefaultSize, wxTB_HORIZONTAL|wxNO_BORDER, _T("ID_TOOLBAR1"));
 	ToolBarItem1 = ToolBar1->AddTool(ID_ZOOMIN, _("ZoomIn"), wxBitmap(wxImage(_T("images/zoom-in-32.png"))), wxNullBitmap, wxITEM_NORMAL, _("Увеличить"), wxEmptyString);
 	ToolBarItem2 = ToolBar1->AddTool(ID_ZOOMOUT, _("ZoomOut"), wxBitmap(wxImage(_T("images/zoom-out-32.png"))), wxNullBitmap, wxITEM_NORMAL, _("Уменьшить"), wxEmptyString);
-	ToolBarItem3 = ToolBar1->AddTool(ID_ANCHOR, _("Anchor"), wxBitmap(wxImage(_T("images/binoculars-32.png"))), wxNullBitmap, wxITEM_CHECK, _("Следить"), wxEmptyString);
+	ToolBarItem3 = ToolBar1->AddTool(ID_ANCHOR, _("Anchor"), wxBitmap(wxImage(_T("images/ylw-pushpin32.png"))), wxNullBitmap, wxITEM_CHECK, _("Следить"), wxEmptyString);
 	ToolBarItem4 = ToolBar1->AddTool(ID_WIFISCAN, _("WiFiScan"), wxBitmap(wxImage(_T("images/wifi.png"))), wxNullBitmap, wxITEM_CHECK, wxEmptyString, wxEmptyString);
 	ToolBar1->Realize();
 	SetToolBar(ToolBar1);
 	FlexGridSizer1->SetSizeHints(this);
 
 	Connect(ID_COMBOBOX1,wxEVT_COMMAND_COMBOBOX_SELECTED,(wxObjectEventFunction)&MainFrame::OnComboBox1Select);
-	Connect(ID_CHOICE1,wxEVT_COMMAND_CHOICE_SELECTED,(wxObjectEventFunction)&MainFrame::OnChoice1Select);
 	Connect(ID_MENU_QUIT,wxEVT_COMMAND_MENU_SELECTED,(wxObjectEventFunction)&MainFrame::OnQuit);
 	Connect(ID_MENU_ABOUT,wxEVT_COMMAND_MENU_SELECTED,(wxObjectEventFunction)&MainFrame::OnAbout);
 	Connect(ID_ZOOMIN,wxEVT_COMMAND_TOOL_CLICKED,(wxObjectEventFunction)&MainFrame::OnZoomInButtonClick);
@@ -123,24 +120,21 @@ MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
 	Maximize(true);
 	Show(true);
 
-	/* Обязательно обнуляем, а то получим ошибку, т.к. картинки начнут
-		использоваться ещё до того, как мы успеем их загрузить */
-	for (int i = 0; i < count_; ++i)
-		images_[i]= 0;
-
-	Cartographer = new cartographer::Painter(this, L"cache");
+	//Cartographer = new cartographer::Painter(this, L"cache");
 	Cartographer = new cartographer::Painter(this, L"172.16.19.1");
-	Cartographer = new cartographer::Painter(this, L"127.0.0.1");
+	//Cartographer = new cartographer::Painter(this, L"127.0.0.1");
+
 	delete Panel1;
 	FlexGridSizer1->Add(Cartographer, 1, wxALL|wxEXPAND|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 5);
 	SetSizer(FlexGridSizer1);
 
+	/* Создаём шрифты */
 	big_font_ = Cartographer->CreateFont(
 		wxFont(12, wxFONTFAMILY_SWISS, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_BOLD) );
 	small_font_ = Cartographer->CreateFont(
 		wxFont(8, wxFONTFAMILY_SWISS, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_BOLD) );
 
-	/* Список карт */
+	/* Загружаем список карт */
 	int maps_count = Cartographer->GetMapsCount();
 	for( int i = 0; i < maps_count; ++i)
 	{
@@ -158,100 +152,26 @@ MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
 	yellow_mark16_id_ = Cartographer->LoadImageFromC(yellow_mark16);
 
 
-	/* Метки - не забыть изменить размер массива (!),
-		когда надо будет добавить ещё */
-	images_[0] = Cartographer->LoadImageFromFile(L"images/blu-blank.png");
-	Cartographer->SetImageCentralPoint(images_[0], 31.5, 64.0);
-
-	images_[1] = Cartographer->LoadImageFromFile(L"images/back.png");
-	Cartographer->SetImageCentralPoint(images_[1], -1.0, 15.5);
-
-	images_[2] = Cartographer->LoadImageFromFile(L"images/forward.png");
-	Cartographer->SetImageCentralPoint(images_[2], 32.0, 15.5);
-
-	images_[3] = Cartographer->LoadImageFromFile(L"images/up.png");
-	Cartographer->SetImageCentralPoint(images_[3], 15.5, -1.0);
-
-	images_[4] = Cartographer->LoadImageFromFile(L"images/down.png");
-	Cartographer->SetImageCentralPoint(images_[4], 15.5, 31.0);
-
-	images_[5] = Cartographer->LoadImageFromFile(L"images/flag.png");
-	Cartographer->SetImageCentralPoint(images_[5], 3.5, 31.0);
-
-	images_[6] = Cartographer->LoadImageFromFile(L"images/write.png");
-	Cartographer->SetImageCentralPoint(images_[6], 1.0, 31.0);
-
-	images_[7] = Cartographer->LoadImageFromFile(L"images/ylw-pushpin.png");
-	Cartographer->SetImageCentralPoint(images_[7], 18.0, 63.0);
-	Cartographer->SetImageScale(images_[7], 0.5, 0.5);
-
-	images_[8] = Cartographer->LoadImageFromFile(L"images/wifi.png");
-	Cartographer->SetImageCentralPoint(images_[8], 15.5, 35.0);
-
-	images_[9] = Cartographer->LoadImageFromFile(L"images/blue_star.png");
-	Cartographer->SetImageCentralPoint(images_[9], 7.0, 8.0);
-
-	images_[10] = Cartographer->LoadImageFromFile(L"images/green_star.png");
-	Cartographer->SetImageCentralPoint(images_[10], 7.0, 8.0);
-
-	/* Места для быстрого перехода */
-	names_[0] = L"Хабаровск";
-	z_[0] = 12;
-	coords_[0] = cartographer::DMSToDD( 48,28,48.77, 135,4,19.04 );
-
-	names_[1] = L"Владивосток";
-	z_[1] = 13;
-	coords_[1] = cartographer::DMSToDD( 43,7,17.95, 131,55,34.4 );
-
-	names_[2] = L"Магадан";
-	z_[2] = 12;
-	coords_[2] = cartographer::DMSToDD( 59,33,41.79, 150,50,19.87 );
-
-	names_[3] = L"Якутск";
-	z_[3] = 10;
-	coords_[3] = cartographer::DMSToDD( 62,4,30.33, 129,45,24.39 );
-
-	names_[4] = L"Южно-Сахалинск";
-	z_[4] = 12;
-	coords_[4] = cartographer::DMSToDD( 46,57,34.28, 142,44,18.58 );
-
-	names_[5] = L"Петропавловск-Камчатский";
-	z_[5] = 13;
-	coords_[5] = cartographer::DMSToDD( 53,4,11.14, 158,37,9.24 );
-
-	names_[6] = L"Бикин";
-	z_[6] = 11;
-	coords_[6] = cartographer::DMSToDD( 46,48,47.59, 134,14,55.71 );
-
-	names_[7] = L"Благовещенск";
-	z_[7] = 14;
-	coords_[7] = cartographer::DMSToDD( 50,16,55.96, 127,31,46.09 );
-
-	names_[8] = L"Биробиджан";
-	z_[8] = 14;
-	coords_[8] = cartographer::DMSToDD( 48,47,52.55, 132,55,5.13 );
-
-	for (int i = 0; i < count_; ++i)
-		Choice1->Append(names_[i]);
-
+	/* Запускаем собственную прорисовку */
 	Cartographer->SetPainter(
-		boost::bind(&cartographerFrame::OnMapPaint, this, _1, _2, _3));
+		boost::bind(&MainFrame::OnMapPaint, this, _1, _2, _3));
 
-	Cartographer->MoveTo(z_[0], coords_[0]);
+	Cartographer->MoveTo(13,
+        cartographer::DMSToDD( 48,28,48.77, 135,4,19.04 ));
 
 	memset(WiFi_mac_, 0, sizeof(WiFi_mac_));
 	WiFiScan_worker_ = new_worker( L"WiFiScan_worker_");
 
+	/*
 	WiFi_mac_[0] = 0;
 	WiFi_mac_[1] = 0x10;
 	WiFi_mac_[2] = 0xE7;
 	WiFi_mac_[3] = 0xA4;
 	WiFi_mac_[4] = 0x46;
 	WiFi_mac_[5] = 0x9D;
+	-*/
 
 	UpdateWiFiData();
-
-	Test();
 }
 
 MainFrame::~MainFrame()
@@ -570,12 +490,6 @@ void MainFrame::OnMapPaint(double z, int width, int height)
 	}
 }
 
-void MainFrame::OnChoice1Select(wxCommandEvent& event)
-{
-	int i = Choice1->GetCurrentSelection();
-	Cartographer->MoveTo(z_[i], coords_[i]);
-}
-
 void MainFrame::OnZoomInButtonClick(wxCommandEvent& event)
 {
 	Cartographer->ZoomIn();
@@ -683,7 +597,8 @@ void MainFrame::UpdateWiFiData()
         char buf[200];
         snprintf( buf, sizeof(buf) / sizeof(*buf),
             "SELECT * FROM wifi_scan_data"
-            " WHERE station_mac=\'%02X:%02X:%02X:%02X:%02X:%02X\'",
+            " WHERE station_mac=\'%02X:%02X:%02X:%02X:%02X:%02X\'"
+            " ORDER BY scan_power DESC",
             WiFi_mac_[0], WiFi_mac_[1], WiFi_mac_[2],
             WiFi_mac_[3], WiFi_mac_[4], WiFi_mac_[5] );
 
@@ -695,9 +610,21 @@ void MainFrame::UpdateWiFiData()
             PQclear(WiFi_data_);
             WiFi_data_ = 0;
         }
+        else
+        {
+			if (PQntuples(WiFi_data_) > 0)
+			{
+				char *lat_s = PQgetvalue(WiFi_data_, 0, 5);
+				char *lon_s = PQgetvalue(WiFi_data_, 0, 6);
+
+				cartographer::coord pt;
+				sscanf(lat_s, "%lf", &pt.lat);
+				sscanf(lon_s, "%lf", &pt.lon);
+				Cartographer->MoveTo(pt);
+			}
+        }
     }
 
-    lock.unlock();
-    SetTitle( (wchar_t*)title);
-    //SetTitle(L"bbbbbbb123");
+    //lock.unlock();
+    //SetTitle(title);
 }

@@ -10,7 +10,7 @@
 #ifndef MAINFRAME_H
 #define MAINFRAME_H
 
-#include "cartographer/frame.h"
+#include "cartographer/Painter.h"
 
 #include <mylib.h>
 
@@ -19,7 +19,6 @@
 #include <wx/menu.h>
 #include <wx/toolbar.h>
 #include <wx/panel.h>
-#include <wx/choice.h>
 #include <wx/frame.h>
 #include <wx/combobox.h>
 #include <wx/statusbr.h>
@@ -51,16 +50,10 @@ class MainFrame: public wxFrame, my::employer
 		int small_font_;
 
 		/* Изображения */
-		int images_[11];
 		int green_mark16_id_;
 		int red_mark16_id_;
 		int yellow_mark16_id_;
 
-		/* "Быстрые" точки */
-		static const int count_ = 9;
-		wxString names_[count_];
-		int z_[count_];
-		cartographer::coord coords_[count_];
 
 		PGconn *pg_conn_;
 		mutex pg_mutex_;
@@ -95,7 +88,6 @@ class MainFrame: public wxFrame, my::employer
 		void OnQuit(wxCommandEvent& event);
 		void OnAbout(wxCommandEvent& event);
 		void OnComboBox1Select(wxCommandEvent& event);
-		void OnChoice1Select(wxCommandEvent& event);
 		void OnZoomInButtonClick(wxCommandEvent& event);
 		void OnZoomOutButtonClick(wxCommandEvent& event);
 		void OnAnchorButtonClick(wxCommandEvent& event);
@@ -104,7 +96,6 @@ class MainFrame: public wxFrame, my::employer
 
 		//(*Identifiers(MainFrame)
 		static const long ID_COMBOBOX1;
-		static const long ID_CHOICE1;
 		static const long ID_PANEL2;
 		static const long ID_PANEL1;
 		static const long ID_MENU_QUIT;
@@ -127,7 +118,6 @@ class MainFrame: public wxFrame, my::employer
 		wxComboBox* ComboBox1;
 		wxPanel* Panel2;
 		wxFlexGridSizer* FlexGridSizer1;
-		wxChoice* Choice1;
 		wxToolBarToolBase* ToolBarItem2;
 		//*)
 
