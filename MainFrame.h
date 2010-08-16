@@ -35,7 +35,7 @@ class MainFrame: public wxFrame, my::employer
 		virtual ~MainFrame();
 
 	private:
-		cartographer::Frame *Cartographer;
+		cartographer::Painter *Cartographer;
 
         my::worker::ptr WiFiScan_worker_;
         int WiFi_sock_;
