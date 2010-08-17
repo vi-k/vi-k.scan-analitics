@@ -61,13 +61,25 @@ class MainFrame: public wxFrame, my::employer
 		PGconn *pg_conn_;
 		mutex pg_mutex_;
 
-
 		bool PgConnect();
+
+		/* GPS */
+		my::worker::ptr GpsTracker_worker_;
+		cartographer::coord Gps_pt_;
+		double Gps_speed_;
+		double Gps_azimuth_;
+		double Gps_altitude_;
+		bool Gps_ok_;
+		mutex Gps_mutex_;
+		int Gps_image_id_;
+
+		void GpsTrackerProc(my::worker::ptr this_worker);
 
 
 		void Test(); /* Тестирование функций Картографера */
 
 		void OnMapPaint(double z, const cartographer::size &screen_size);
+		void StatusHandler(std::wstring &str);
 
 		void DrawImage(int id, const cartographer::coord &pt, double alpha = 1.0);
         void DrawSimpleCircle(const cartographer::point &pos,

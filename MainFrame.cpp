@@ -53,6 +53,10 @@ MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
 	, WiFi_max_power_(0)
 	, big_font_(0)
 	, small_font_(0)
+	, Gps_speed_(0.0)
+	, Gps_azimuth_(0.0)
+	, Gps_altitude_(0.0)
+	, Gps_ok_(false)
 {
 	#undef _
 	#define _(s) (L##s)
@@ -122,8 +126,8 @@ MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
 	Maximize(true);
 	Show(true);
 
-	//Cartographer = new cartographer::Painter(this, L"cache");
-	Cartographer = new cartographer::Painter(this, L"172.16.19.1");
+	Cartographer = new cartographer::Painter(this, L"cache");
+	//Cartographer = new cartographer::Painter(this, L"172.16.19.1");
 	//Cartographer = new cartographer::Painter(this, L"127.0.0.1");
 
 	delete Panel1;
@@ -153,16 +157,29 @@ MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
 	red_mark16_id_ = Cartographer->LoadImageFromC(red_mark16);
 	yellow_mark16_id_ = Cartographer->LoadImageFromC(yellow_mark16);
 
+	//Gps_image_id_ = Cartographer->LoadImageFromFile(L"images/down.png");
+	//Cartographer->SetImageCentralPoint(Gps_image_id_, 15.5, 31.0);
+	//Cartographer->SetImageScale(Gps_image_id_, 0.5);
+
+	Gps_image_id_ = Cartographer->LoadImageFromFile(L"images/ylw-pushpin.png");
+	Cartographer->SetImageCentralPoint(Gps_image_id_, 18.0, 63.0);
+	Cartographer->SetImageScale(Gps_image_id_, 0.5);
+
 
 	/* Запускаем собственную прорисовку */
 	Cartographer->SetPainter(
 		boost::bind(&MainFrame::OnMapPaint, this, _1, _2));
 
+	Cartographer->SetStatusHandler(
+		boost::bind(&MainFrame::StatusHandler, this, _1));
+
 	Cartographer->MoveTo(13,
 		cartographer::DMSToDD( 48,28,48.77, 135,4,19.04 ));
 
 	memset(WiFi_mac_, 0, sizeof(WiFi_mac_));
-	WiFiScan_worker_ = new_worker( L"WiFiScan_worker_");
+	WiFiScan_worker_ = new_worker( L"WiFiScan_worker");
+
+	GpsTracker_worker_ = new_worker( L"GpsTracker_worker");
 
 	/*
 	WiFi_mac_[0] = 0;
@@ -191,6 +208,7 @@ MainFrame::~MainFrame()
 		close(WiFi_sock_);
 
 	dismiss(WiFiScan_worker_);
+	dismiss(GpsTracker_worker_);
 
 	#ifndef NDEBUG
 	debug_wait_for_finish(L"MainFrame", posix_time::seconds(5));
@@ -503,6 +521,48 @@ void MainFrame::OnMapPaint(double z, const cartographer::size &screen_size)
 			}
 		}
 	}
+
+	{
+		unique_lock<mutex> lock(Gps_mutex_);
+		DrawImage(Gps_image_id_, Gps_pt_);
+	}
+}
+
+void MainFrame::StatusHandler(std::wstring &str)
+{
+	str += L" | GPS: ";
+
+	if ( !worked(GpsTracker_worker_) )
+		str += L"отключен";
+	else
+	{
+		unique_lock<mutex> lock(Gps_mutex_);
+
+		if (!Gps_ok_)
+			str+= L"ошибка";
+		else
+		{
+			wchar_t buf[400];
+
+			int lat_sign, lon_sign;
+			int lat_d, lon_d;
+			int lat_m, lon_m;
+			double lat_s, lon_s;
+
+			DDToDMS( Gps_pt_,
+				&lat_sign, &lat_d, &lat_m, &lat_s,
+				&lon_sign, &lon_d, &lon_m, &lon_s );
+
+			__swprintf(buf, sizeof(buf)/sizeof(*buf),
+				L"%s%d°%02d\'%05.2f\"  %s%d°%02d\'%05.2f\""
+				L"  %0.2fкм/ч  %0.1f°  %0.1fм",
+				lat_sign < 0 ? L"-" : L"", lat_d, lat_m, lat_s,
+				lon_sign < 0 ? L"-" : L"", lon_d, lon_m, lon_s,
+				Gps_speed_, Gps_azimuth_, Gps_altitude_);
+
+			str += buf;
+		}
+	}
 }
 
 void MainFrame::OnZoomInButtonClick(wxCommandEvent& event)
@@ -517,6 +577,77 @@ void MainFrame::OnZoomOutButtonClick(wxCommandEvent& event)
 
 void MainFrame::OnAnchorButtonClick(wxCommandEvent& event)
 {
+	unique_lock<mutex> lock(WiFi_mutex_);
+
+	if ( worked(GpsTracker_worker_) )
+	{
+		lets_finish(GpsTracker_worker_);
+		ToolBar1->ToggleTool(ID_ANCHOR, false);
+	}
+	else
+	{
+		boost::thread( boost::bind(
+			&MainFrame::GpsTrackerProc, this, GpsTracker_worker_) );
+
+		ToolBar1->ToggleTool(ID_ANCHOR, true);
+	}
+}
+
+void MainFrame::GpsTrackerProc(my::worker::ptr this_worker)
+{
+	int gpsd_sock = socket( AF_INET, SOCK_STREAM, 0);
+	if( gpsd_sock < 0)
+		return;
+
+	sockaddr_in gpsd_addr;
+	gpsd_addr.sin_family      = AF_INET;
+	gpsd_addr.sin_port        = htons(2947);
+	gpsd_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
+
+	if( connect(gpsd_sock, (struct sockaddr *)&gpsd_addr,
+		sizeof(gpsd_addr)) < 0)
+	{
+		close(gpsd_sock);
+		return;
+	}
+
+
+	char buf[256];
+
+	while ( !finish(this_worker) )
+	{
+		usleep(1000000);
+		//sleep(1);
+
+		int n = snprintf(buf, sizeof(buf) / sizeof(*buf), "pvta\r\n");
+		if (send(gpsd_sock, buf, n, 0) != n)
+			break;
+
+		n = recv(gpsd_sock, buf, sizeof(buf) / sizeof(*buf) - 1, 0);
+		if (n <= 0)
+			break;
+
+		buf[n] = 0;
+
+		unique_lock<mutex> lock(Gps_mutex_);
+
+		//sprintf(buf, "GPSD,P=48.5 135.1,V=2.5,T=0.0,A=100.0");
+
+		n = sscanf(buf, "GPSD,P=%lf %lf,V=%lf,T=%lf,A=%lf",
+			&Gps_pt_.lat, &Gps_pt_.lon,
+			&Gps_speed_, &Gps_azimuth_, &Gps_altitude_);
+
+		if (n != 5)
+			Gps_ok_ = false;
+		else
+		{
+			Gps_ok_ = true;
+			Gps_speed_ *= 1.852; /* Узлы в км/ч */
+			//Cartographer->MoveTo(Gps_pt_);
+		}
+	}
+
+	close(gpsd_sock);
 }
 
 void MainFrame::OnWiFiScanButtonClicked(wxCommandEvent& event)
@@ -572,11 +703,11 @@ void MainFrame::WiFiScanProc(my::worker::ptr this_worker)
 
 		int sz = recv(WiFi_sock_, buf, 6, 0);
 
-		if (sz < 6)
-		{
-			//fprintf(stderr, "Connection closed");
+		if (sz == -1)
 			break;
-		}
+
+		if (sz != 6)
+			continue;
 
 		{
 			unique_lock<mutex> l(WiFi_mutex_);
