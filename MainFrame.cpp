@@ -49,6 +49,8 @@ MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
 	: Cartographer(0)
 	, WiFi_sock_(0)
 	, WiFi_data_(0)
+	, WiFi_min_power_(-100)
+	, WiFi_max_power_(0)
 	, big_font_(0)
 	, small_font_(0)
 {
@@ -108,7 +110,7 @@ MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
 	Connect(ID_WIFISCAN,wxEVT_COMMAND_TOOL_CLICKED,(wxObjectEventFunction)&MainFrame::OnWiFiScanButtonClicked);
 	//*)
 
-    setlocale(LC_NUMERIC, "C");
+	setlocale(LC_NUMERIC, "C");
 
 	{
 		wxIcon FrameIcon;
@@ -154,10 +156,10 @@ MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
 
 	/* Запускаем собственную прорисовку */
 	Cartographer->SetPainter(
-		boost::bind(&MainFrame::OnMapPaint, this, _1, _2, _3));
+		boost::bind(&MainFrame::OnMapPaint, this, _1, _2));
 
 	Cartographer->MoveTo(13,
-        cartographer::DMSToDD( 48,28,48.77, 135,4,19.04 ));
+		cartographer::DMSToDD( 48,28,48.77, 135,4,19.04 ));
 
 	memset(WiFi_mac_, 0, sizeof(WiFi_mac_));
 	WiFiScan_worker_ = new_worker( L"WiFiScan_worker_");
@@ -172,6 +174,8 @@ MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
 	-*/
 
 	UpdateWiFiData();
+
+	//int a = PQisthreadsafe();
 }
 
 MainFrame::~MainFrame()
@@ -184,7 +188,7 @@ MainFrame::~MainFrame()
 	lets_finish();
 
 	if (WiFi_sock_)
-		shutdown(WiFi_sock_, 0);
+		close(WiFi_sock_);
 
 	dismiss(WiFiScan_worker_);
 
@@ -205,30 +209,30 @@ MainFrame::~MainFrame()
 
 bool MainFrame::PgConnect()
 {
-    unique_lock<mutex> l(pg_mutex_);
+	unique_lock<mutex> l(pg_mutex_);
 
-    if (pg_conn_)
-    {
-    	if (PQstatus(pg_conn_) == CONNECTION_OK)
+	if (pg_conn_)
+	{
+		if (PQstatus(pg_conn_) == CONNECTION_OK)
 			return true;
 
 		PQfinish(pg_conn_);
 		pg_conn_ = 0;
-    }
+	}
 
-    pg_conn_ = PQconnectdb(
-        "hostaddr=127.0.0.1"
-        " dbname=radioscan"
-        " user=radioscan"
-        " password=123");
+	pg_conn_ = PQconnectdb(
+		"hostaddr=127.0.0.1"
+		" dbname=radioscan"
+		" user=radioscan"
+		" password=123");
 
 	if (PQstatus(pg_conn_) != CONNECTION_OK)
 	{
 		fprintf(stderr, "Connection to database failed: %s",
-            PQerrorMessage(pg_conn_));
-        PQfinish(pg_conn_);
-        pg_conn_ = 0;
-        return false;
+			PQerrorMessage(pg_conn_));
+		PQfinish(pg_conn_);
+		pg_conn_ = 0;
+		return false;
 	}
 
 	return true;
@@ -420,7 +424,7 @@ cartographer::coord MainFrame::DrawPath(const cartographer::coord &pt,
 	return ptN;
 }
 
-void MainFrame::OnMapPaint(double z, int width, int height)
+void MainFrame::OnMapPaint(double z, const cartographer::size &screen_size)
 {
 	/*-
 	int fields = PQnfields(pg_res_);
@@ -431,9 +435,20 @@ void MainFrame::OnMapPaint(double z, int width, int height)
 
 	if (z > 10.0)
 	{
-		unique_lock<mutex> l(WiFi_mutex_);
-		if (WiFi_data_)
+		unique_lock<mutex> lock(WiFi_mutex_, boost::try_to_lock);
+
+		if (lock.owns_lock() && WiFi_data_)
 		{
+			int min_power = WiFi_min_power_;
+			int max_power = WiFi_max_power_;
+			int delta_power = max_power - min_power;
+
+			if (delta_power == 0)
+			{
+				delta_power = 1;
+				--min_power;
+			}
+
 			for (int i = 0; i < PQntuples(WiFi_data_); i++)
 			{
 				//char *mac = PQgetvalue(WiFi_data_, i, 0);
@@ -450,7 +465,7 @@ void MainFrame::OnMapPaint(double z, int width, int height)
 
 				cartographer::point pos = Cartographer->CoordToScreen(pt);
 
-				double power_k = (power + 100.0) / 110.0;
+				double power_k = (power - min_power) / (double)delta_power;
 
 				if (power_k < 0.0)
 					power_k = 0.0;
@@ -484,7 +499,7 @@ void MainFrame::OnMapPaint(double z, int width, int height)
 				Cartographer->DrawText(small_font_,
 					out.str(), pos, cartographer::color(1.0, 1.0, 0.0),
 					cartographer::ratio(0.5, 0.0), cartographer::ratio(1.0, 1.0));
-                -*/
+				-*/
 			}
 		}
 	}
@@ -510,7 +525,7 @@ void MainFrame::OnWiFiScanButtonClicked(wxCommandEvent& event)
 
 	if (WiFiScan_worker_.use_count() != 2)
 	{
-		shutdown(WiFi_sock_, 0);
+		close(WiFi_sock_);
 		ToolBar1->ToggleTool(ID_WIFISCAN, false);
 	}
 	else
@@ -533,7 +548,7 @@ void MainFrame::OnWiFiScanButtonClicked(wxCommandEvent& event)
 
 		if (connect(WiFi_sock_, (struct sockaddr *)&remote, len) == -1)
 		{
-			shutdown(WiFi_sock_, 0);
+			close(WiFi_sock_);
 			WiFi_sock_ = 0;
 			lock.unlock();
 
@@ -542,10 +557,10 @@ void MainFrame::OnWiFiScanButtonClicked(wxCommandEvent& event)
 			return;
 		}
 
-        boost::thread( boost::bind(
-            &MainFrame::WiFiScanProc, this, WiFiScan_worker_) );
+		boost::thread( boost::bind(
+			&MainFrame::WiFiScanProc, this, WiFiScan_worker_) );
 
-        ToolBar1->ToggleTool(ID_WIFISCAN, true);
+		ToolBar1->ToggleTool(ID_WIFISCAN, true);
 	}
 }
 
@@ -564,15 +579,15 @@ void MainFrame::WiFiScanProc(my::worker::ptr this_worker)
 		}
 
 		{
-		    unique_lock<mutex> l(WiFi_mutex_);
-            memcpy(WiFi_mac_, buf, 6);
+			unique_lock<mutex> l(WiFi_mutex_);
+			memcpy(WiFi_mac_, buf, 6);
 		}
 
 		UpdateWiFiData();
-    }
+	}
 
-    shutdown(WiFi_sock_, 0);
-    WiFi_sock_ = 0;
+	close(WiFi_sock_);
+	WiFi_sock_ = 0;
 }
 
 void MainFrame::UpdateWiFiData()
@@ -580,51 +595,65 @@ void MainFrame::UpdateWiFiData()
 	if (!PgConnect())
 		return;
 
-    wchar_t title[100] = { L"Scan Analitics" };
+	wchar_t title[100] = { L"Scan Analitics" };
 
 	unique_lock<mutex> lock(WiFi_mutex_);
 
 	if (WiFi_data_)
 		PQclear(WiFi_data_);
 
-    if (memcmp(WiFi_mac_, "\0\0\0\0\0\0", 6) != 0)
-    {
-        swprintf( title, sizeof(title) / sizeof(*title),
-            L"Scan Analitics (%02X:%02X:%02X:%02X:%02X:%02X)",
-            WiFi_mac_[0], WiFi_mac_[1], WiFi_mac_[2],
-            WiFi_mac_[3], WiFi_mac_[4], WiFi_mac_[5] );
+	if (memcmp(WiFi_mac_, "\0\0\0\0\0\0", 6) != 0)
+	{
+		swprintf( title, sizeof(title) / sizeof(*title),
+			L"Scan Analitics (%02X:%02X:%02X:%02X:%02X:%02X)",
+			WiFi_mac_[0], WiFi_mac_[1], WiFi_mac_[2],
+			WiFi_mac_[3], WiFi_mac_[4], WiFi_mac_[5] );
 
-        char buf[200];
-        snprintf( buf, sizeof(buf) / sizeof(*buf),
-            "SELECT * FROM wifi_scan_data"
-            " WHERE station_mac=\'%02X:%02X:%02X:%02X:%02X:%02X\'"
-            " ORDER BY scan_power DESC",
-            WiFi_mac_[0], WiFi_mac_[1], WiFi_mac_[2],
-            WiFi_mac_[3], WiFi_mac_[4], WiFi_mac_[5] );
+		char buf[200];
+		snprintf( buf, sizeof(buf) / sizeof(*buf),
+			"SELECT * FROM wifi_scan_data"
+			" WHERE station_mac=\'%02X:%02X:%02X:%02X:%02X:%02X\'"
+			" ORDER BY scan_power",
+			WiFi_mac_[0], WiFi_mac_[1], WiFi_mac_[2],
+			WiFi_mac_[3], WiFi_mac_[4], WiFi_mac_[5] );
 
-        WiFi_data_ = PQexec(pg_conn_, buf);
+		WiFi_data_ = PQexec(pg_conn_, buf);
 
-        if (PQresultStatus(WiFi_data_) != PGRES_TUPLES_OK)
-        {
-            fprintf(stderr, "Command failed: %s", PQerrorMessage(pg_conn_));
-            PQclear(WiFi_data_);
-            WiFi_data_ = 0;
-        }
-        else
-        {
-			if (PQntuples(WiFi_data_) > 0)
+		if (PQresultStatus(WiFi_data_) != PGRES_TUPLES_OK)
+		{
+			fprintf(stderr, "Command failed: %s", PQerrorMessage(pg_conn_));
+			PQclear(WiFi_data_);
+			WiFi_data_ = 0;
+		}
+		else
+		{
+			int count = PQntuples(WiFi_data_);
+
+			for (int i = 0; i < count; i++)
 			{
-				char *lat_s = PQgetvalue(WiFi_data_, 0, 5);
-				char *lon_s = PQgetvalue(WiFi_data_, 0, 6);
+				char *power_s = PQgetvalue(WiFi_data_, i, 3);
+				char *lat_s = PQgetvalue(WiFi_data_, i, 5);
+				char *lon_s = PQgetvalue(WiFi_data_, i, 6);
 
+				int power;
 				cartographer::coord pt;
+
+				sscanf(power_s, "%d", &power);
 				sscanf(lat_s, "%lf", &pt.lat);
 				sscanf(lon_s, "%lf", &pt.lon);
-				Cartographer->MoveTo(pt);
-			}
-        }
-    }
 
-    //lock.unlock();
-    //SetTitle(title);
+				if (i == 0 || power < WiFi_min_power_)
+					WiFi_min_power_ = power;
+
+				if (i == 0 || power > WiFi_max_power_)
+					WiFi_max_power_ = power;
+
+				if ( i == count - 1)
+					Cartographer->MoveTo(pt);
+			}
+		}
+	}
+
+	//lock.unlock();
+	//SetTitle(title);
 }

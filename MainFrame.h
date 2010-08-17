@@ -36,11 +36,14 @@ class MainFrame: public wxFrame, my::employer
 	private:
 		cartographer::Painter *Cartographer;
 
+		/* WiFiScan */
         my::worker::ptr WiFiScan_worker_;
         int WiFi_sock_;
         unsigned char WiFi_mac_[6];
 		PGresult *WiFi_data_;
 		mutex WiFi_mutex_;
+        int WiFi_min_power_, WiFi_max_power_;
+        //cartographer::coord min_pt_, max_pt_;
 
         void WiFiScanProc(my::worker::ptr this_worker);
         void UpdateWiFiData();
@@ -54,16 +57,17 @@ class MainFrame: public wxFrame, my::employer
 		int red_mark16_id_;
 		int yellow_mark16_id_;
 
-
+		/* Postgre */
 		PGconn *pg_conn_;
 		mutex pg_mutex_;
+
 
 		bool PgConnect();
 
 
 		void Test(); /* Тестирование функций Картографера */
 
-		void OnMapPaint(double z, int width, int height);
+		void OnMapPaint(double z, const cartographer::size &screen_size);
 
 		void DrawImage(int id, const cartographer::coord &pt, double alpha = 1.0);
         void DrawSimpleCircle(const cartographer::point &pos,
