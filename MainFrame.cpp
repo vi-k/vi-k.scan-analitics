@@ -9,6 +9,9 @@
 
 #include "MainFrame.h"
 
+extern my::log main_log;
+extern my::log debug_log;
+
 #include <string>
 #include <sstream>
 
@@ -41,23 +44,34 @@ const long MainFrame::ID_TOOLBAR1 = wxNewId();
 //*)
 
 BEGIN_EVENT_TABLE(MainFrame,wxFrame)
+	EVT_IDLE(MainFrame::OnIdle)
 	//(*EventTable(MainFrame)
 	//*)
 END_EVENT_TABLE()
 
 MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
-	: Cartographer(0)
+	: my::employer("MainFrame_employer")
+	, Cartographer(0)
 	, WiFi_sock_(0)
-	, WiFi_data_(0)
+	, WiFi_data_(NULL)
 	, WiFi_min_power_(-100)
 	, WiFi_max_power_(0)
+	, MY_MUTEX_DEF(WiFi_mutex_,true)
 	, big_font_(0)
 	, small_font_(0)
+	, green_mark16_id_(0)
+	, red_mark16_id_(0)
+	, yellow_mark16_id_(0)
+	, pg_conn_(NULL)
+	, MY_MUTEX_DEF(pg_mutex_,true)
 	, Gps_speed_(0.0)
 	, Gps_azimuth_(0.0)
 	, Gps_altitude_(0.0)
 	, Gps_ok_(false)
+	, MY_MUTEX_DEF(Gps_mutex_,true)
 {
+	MY_REGISTER_THREAD("Main");
+
 	#undef _
 	#define _(s) (L##s)
 
@@ -193,6 +207,9 @@ MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
 	UpdateWiFiData();
 
 	//int a = PQisthreadsafe();
+
+	boost::thread( boost::bind(
+		&MainFrame::CheckerProc, this, new_worker( L"Checker_worker")) );
 }
 
 MainFrame::~MainFrame()
@@ -530,6 +547,8 @@ void MainFrame::OnMapPaint(double z, const cartographer::size &screen_size)
 
 void MainFrame::StatusHandler(std::wstring &str)
 {
+	debug_log << L"StatusHandler()" << debug_log;
+
 	str += L" | GPS: ";
 
 	if ( !worked(GpsTracker_worker_) )
@@ -595,13 +614,15 @@ void MainFrame::OnAnchorButtonClick(wxCommandEvent& event)
 
 void MainFrame::GpsTrackerProc(my::worker::ptr this_worker)
 {
+	MY_REGISTER_THREAD("GpsTracker");
+
 	int gpsd_sock = socket( AF_INET, SOCK_STREAM, 0);
 	if( gpsd_sock < 0)
 		return;
 
 	sockaddr_in gpsd_addr;
-	gpsd_addr.sin_family      = AF_INET;
-	gpsd_addr.sin_port        = htons(2947);
+	gpsd_addr.sin_family = AF_INET;
+	gpsd_addr.sin_port = htons(2947);
 	gpsd_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
 
 	if( connect(gpsd_sock, (struct sockaddr *)&gpsd_addr,
@@ -616,8 +637,9 @@ void MainFrame::GpsTrackerProc(my::worker::ptr this_worker)
 
 	while ( !finish(this_worker) )
 	{
-		usleep(1000000);
-		//sleep(1);
+		boost::this_thread::sleep( posix_time::milliseconds(1000) );
+
+		debug_log << L"GpsTrackerProc()" << debug_log;
 
 		int n = snprintf(buf, sizeof(buf) / sizeof(*buf), "pvta\r\n");
 		if (send(gpsd_sock, buf, n, 0) != n)
@@ -629,22 +651,38 @@ void MainFrame::GpsTrackerProc(my::worker::ptr this_worker)
 
 		buf[n] = 0;
 
-		unique_lock<mutex> lock(Gps_mutex_);
+		cartographer::coord gps_pt;
+		double gps_speed;
+		double gps_azimuth;
+		double gps_altitude;
+		bool gps_ok;
 
-		//sprintf(buf, "GPSD,P=48.5 135.1,V=2.5,T=0.0,A=100.0");
+		sprintf(buf, "GPSD,P=48.5 135.1,V=2.5,T=0.0,A=100.0");
 
 		n = sscanf(buf, "GPSD,P=%lf %lf,V=%lf,T=%lf,A=%lf",
-			&Gps_pt_.lat, &Gps_pt_.lon,
-			&Gps_speed_, &Gps_azimuth_, &Gps_altitude_);
+			&gps_pt.lat, &gps_pt.lon,
+			&gps_speed, &gps_azimuth, &gps_altitude);
 
 		if (n != 5)
-			Gps_ok_ = false;
+			gps_ok = false;
 		else
 		{
-			Gps_ok_ = true;
-			Gps_speed_ *= 1.852; /* Узлы в км/ч */
-			//Cartographer->MoveTo(Gps_pt_);
+			gps_ok = true;
+			gps_speed *= 1.852; /* Узлы в км/ч */
 		}
+
+		{
+			unique_lock<mutex> lock(Gps_mutex_);
+
+			Gps_ok_ = gps_ok;
+			Gps_pt_ = gps_pt;
+			Gps_speed_ = gps_speed;
+			Gps_azimuth_ = gps_azimuth;
+			Gps_altitude_ = gps_altitude;
+		}
+
+		if (gps_ok)
+			Cartographer->MoveTo(gps_pt);
 	}
 
 	close(gpsd_sock);
@@ -697,6 +735,8 @@ void MainFrame::OnWiFiScanButtonClicked(wxCommandEvent& event)
 
 void MainFrame::WiFiScanProc(my::worker::ptr this_worker)
 {
+	MY_REGISTER_THREAD("WiFiScan");
+
 	while (!finish())
 	{
 		unsigned char buf[100];
@@ -787,4 +827,25 @@ void MainFrame::UpdateWiFiData()
 
 	//lock.unlock();
 	//SetTitle(title);
+}
+
+void MainFrame::CheckerProc(my::worker::ptr this_worker)
+{
+	MY_REGISTER_THREAD("Checker");
+
+	while (!finish())
+	{
+		boost::this_thread::sleep( posix_time::milliseconds(1000) );
+		debug_log << L"CheckerProc()" << debug_log;
+	}
+}
+
+void MainFrame::OnIdle(wxIdleEvent& event)
+{
+	static posix_time::ptime start = my::time::utc_now();
+	if (my::time::utc_now() - start > posix_time::milliseconds(1000))
+	{
+		debug_log << L"OnIdle()" << debug_log;
+		start = my::time::utc_now();
+	}
 }

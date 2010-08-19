@@ -8,10 +8,16 @@
 
 #include <boost/bind.hpp>
 
+extern my::log main_log;
+extern my::log debug_log;
+
 namespace cartographer
 {
 
+wxDEFINE_EVENT(MY_EVENT, wxCommandEvent);
+
 BEGIN_EVENT_TABLE(Base, wxGLCanvas)
+	EVT_COMMAND(wxID_ANY, MY_EVENT, Base::on_my_event)
 	EVT_PAINT(Base::on_paint)
 	EVT_ERASE_BACKGROUND(Base::on_erase_background)
 	EVT_SIZE(Base::on_size)
@@ -25,12 +31,14 @@ END_EVENT_TABLE()
 
 Base::Base(wxWindow *parent, const std::wstring &server_addr,
 	const std::wstring &init_map, std::size_t cache_size)
-	: wxGLCanvas(parent, wxID_ANY, NULL /* attribs */,
+	: my::employer("Cartographer_employer")
+	, wxGLCanvas(parent, wxID_ANY, NULL /* attribs */,
 		wxDefaultPosition, wxDefaultSize,
 		wxFULL_REPAINT_ON_RESIZE)
 	, gl_context_(this)
 	, magic_id_(0)
 	, load_texture_debug_counter_(0)
+	, MY_MUTEX_DEF(delete_texture_mutex_,true)
 	, delete_texture_debug_counter_(0)
 	, cache_path_( fs::system_complete(L"cache").string() )
 	, cache_(cache_size)
@@ -41,6 +49,7 @@ Base::Base(wxWindow *parent, const std::wstring &server_addr,
 	, basis_tile_y1_(0)
 	, basis_tile_x2_(0)
 	, basis_tile_y2_(0)
+	, MY_MUTEX_DEF(cache_mutex_,false)
 	, builder_debug_counter_(0)
 	, file_iterator_(cache_.end())
 	, file_loader_dbg_loop_(0)
@@ -54,6 +63,8 @@ Base::Base(wxWindow *parent, const std::wstring &server_addr,
 	, anim_freq_(0)
 	, animator_debug_counter_(0)
 	, draw_tile_debug_counter_(0)
+	, MY_MUTEX_DEF(paint_mutex_,true)
+	, MY_MUTEX_DEF(params_mutex_,true)
 	, map_id_(0)
 	, map_pr_(Unknown_Projection)
 	, z_(1.0)
@@ -461,6 +472,8 @@ tile::ptr Base::get_tile(const tile::id &tile_id)
 /* Загрузчик тайлов с диска. При пустой очереди - засыпает */
 void Base::file_loader_proc(my::worker::ptr this_worker)
 {
+	MY_REGISTER_THREAD("cartographer::file_loader");
+
 	while (!finish())
 	{
 		tile::id tile_id;
@@ -541,6 +554,8 @@ void Base::file_loader_proc(my::worker::ptr this_worker)
 /* Загрузчик тайлов с сервера. При пустой очереди - засыпает */
 void Base::server_loader_proc(my::worker::ptr this_worker)
 {
+	MY_REGISTER_THREAD("cartographer::server_loader");
+
 	while (!finish())
 	{
 		tile::id tile_id;
@@ -640,12 +655,16 @@ void Base::server_loader_proc(my::worker::ptr this_worker)
 
 void Base::anim_thread_proc(my::worker::ptr this_worker)
 {
+	MY_REGISTER_THREAD("cartographer::animator");
+
 	asio::io_service io_service;
 	asio::deadline_timer timer(io_service, my::time::utc_now());
 
 	while (!finish())
 	{
 		++animator_debug_counter_;
+
+		debug_log << L"cartographer::anim_thread_proc()" << debug_log;
 
 		{
 			unique_lock<recursive_mutex> lock(params_mutex_);
@@ -669,13 +688,10 @@ void Base::anim_thread_proc(my::worker::ptr this_worker)
 		}
 #endif
 
-		/* Ждём, пока отрисует прошлое состояние */
-		{
-			unique_lock<mutex> lock(paint_mutex_);
-		}
-
-		//update();
-		Refresh(false);
+		//Refresh(false);
+		//Update();
+		send_my_event(MY_ID_REPAINT);
+		sleep(this_worker);
 
 		boost::posix_time::ptime time = timer.expires_at() + anim_period_;
 		boost::posix_time::ptime now = my::time::utc_now();
@@ -798,6 +814,8 @@ void Base::paint_debug_info_int(DC &gc, int width, int height)
 
 void Base::repaint()
 {
+	debug_log << L"cartographer::repaint()" << debug_log;
+
 	unique_lock<mutex> l1(paint_mutex_);
 	unique_lock<recursive_mutex> l2(params_mutex_);
 
@@ -969,7 +987,6 @@ void Base::repaint()
 		}
 	}
 
-
 	/**
 		Рисуем
 	*/
@@ -1038,6 +1055,8 @@ void Base::repaint()
 		for (int y = z_i_tile_y1; y < z_i_tile_y2; ++y)
 			paint_tile( tile::id(map_id_, z_i, x, y) );
 
+	debug_log << L"cartographer::repaint() after paint map" << debug_log;
+
 	/* Меняем проекцию на проекцию экрана */
 	{
 		glColor4d(1.0, 1.0, 1.0, 1.0);
@@ -1055,12 +1074,16 @@ void Base::repaint()
 
 	magic_exec();
 
+	debug_log << L"cartographer::repaint() before on_paint" << debug_log;
+
 	/* Картинка пользователя */
 	if (on_paint_handler_)
 	{
 		on_paint_handler_(z_, screen_size);
 		magic_exec();
 	}
+
+	debug_log << L"cartographer::repaint() after on_paint" << debug_log;
 
 	/* Показываем fix-точку при изменении масштаба */
 	if (central_cross_step_ || dz > 0.1)
@@ -1085,15 +1108,21 @@ void Base::repaint()
 			glVertex3d( center_pos.x - 8, center_pos.y + 8, 0.0 );
 			glVertex3d( center_pos.x + 8, center_pos.y - 8, 0.0 );
 		glEnd();
+
+		check_gl_error();
 	}
 
+	debug_log << L"cartographer::repaint() before after_paint()" << debug_log;
+
 	after_repaint(screen_size);
+
+	debug_log << L"cartographer::repaint() after after_paint()" << debug_log;
 
 	glFlush();
 	SwapBuffers();
 	check_gl_error();
 
-	//paint_debug_info(dc, width_i, height_i);
+	debug_log << L"cartographer::repaint() after SwapBuffers()" << debug_log;
 
 	/* Удаляем текстуры, вышедшие из употребления */
 	delete_textures();
@@ -1124,6 +1153,10 @@ void Base::repaint()
 	}
 
 	anim_freq_sw_.start();
+
+	wake_up(animator_);
+
+	debug_log << L"~ cartographer::repaint()" << debug_log;
 }
 
 size Base::get_screen_size()
@@ -1174,11 +1207,31 @@ void Base::set_z(int z)
 	update();
 }
 
+void Base::send_my_event(int cmd_id)
+{
+    wxCommandEvent event(MY_EVENT);
+    event.SetInt(cmd_id);
+	AddPendingEvent(event);
+}
+
+void Base::on_my_event(wxCommandEvent& event)
+{
+	switch (event.GetInt())
+	{
+		case MY_ID_REPAINT:
+			repaint();
+			break;
+
+		default:
+			break;
+	}
+}
+
 void Base::on_paint(wxPaintEvent &event)
 {
 	wxPaintDC dc(this);
 
-	repaint();
+	//repaint();
 
 	event.Skip(false);
 }

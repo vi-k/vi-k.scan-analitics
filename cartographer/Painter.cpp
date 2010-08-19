@@ -1,11 +1,11 @@
 ﻿#include "Painter.h"
 
 #include <wchar.h> /* swprintf */
-//#include <sstream>
-//#include <fstream>
-//#include <vector>
 
 #include <boost/bind.hpp>
+
+extern my::log main_log;
+extern my::log debug_log;
 
 namespace cartographer
 {
@@ -14,7 +14,9 @@ Painter::Painter(wxWindow *parent, const std::wstring &server_addr,
 	const std::wstring &init_map, std::size_t cache_size)
 	: Base(parent, server_addr, init_map, cache_size)
 	, sprites_index_(0)
+	, MY_MUTEX_DEF(sprites_mutex_,true)
 	, fonts_index_(0)
+	, MY_MUTEX_DEF(fonts_mutex_,true)
 	, system_font_id_(0)
 {
 	system_font_id_ = CreateFont(
@@ -170,6 +172,8 @@ fast_point Painter::GetScreenPos()
 
 void Painter::MoveTo(const coord &pt)
 {
+	debug_log << L"MoveTo()" << debug_log;
+
 	unique_lock<recursive_mutex> lock(params_mutex_);
 	screen_pos_ = pt;
 }
@@ -178,7 +182,7 @@ void Painter::MoveTo(int z, const coord &pt)
 {
 	unique_lock<recursive_mutex> lock(params_mutex_);
 	screen_pos_ = pt;
-	SetActiveZ(z);
+	set_z(z);
 }
 
 int Painter::LoadImageFromFile(const std::wstring &filename)
@@ -336,13 +340,13 @@ void Painter::DrawImage(int image_id, const point &pos, const ratio &scale)
 			++load_texture_debug_counter_;
 		}
 
-		const ratio total_scale = scale * sprite_ptr->scale();
-		double w = sprite_ptr->raw().width() * total_scale.kx;
-		double h = sprite_ptr->raw().height() * total_scale.ky;
+		const ratio sc = scale * sprite_ptr->scale();
+		double w = sprite_ptr->raw().width() * sc.kx;
+		double h = sprite_ptr->raw().height() * sc.ky;
 
 		const ratio center = sprite_ptr->center();
-		double x = pos.x - w * center.kx;
-		double y = pos.y - h * center.ky;
+		double x = pos.x - sprite_ptr->width() * sc.kx * center.kx;
+		double y = pos.y - sprite_ptr->height() * sc.ky * center.ky;
 
 		glBindTexture(GL_TEXTURE_2D, texture_id);
 		glBegin(GL_QUADS);
@@ -403,12 +407,30 @@ size Painter::DrawText(int font_id, const std::wstring &str, const point &pos,
 
 void Painter::after_repaint(const size &screen_size)
 {
+	debug_log << L"cartographer::after_repaint()" << debug_log;
+
 	/* Статус-строка */
 	std::wstring status_str;
 
 	{
 		wchar_t buf[200];
 
+		debug_log << L"cartographer::before screen_to_coord()" << debug_log;
+
+		point sc_pt = screen_pos_.get_world_pos(map_pr_);
+		point ce_pt = center_pos_.get_pos();
+
+		debug_log
+			<< L"mouse_pos: " << mouse_pos_.x << L',' << mouse_pos_.y
+			<< L" z_: " << z_
+			<< L" screen_pos: " << sc_pt.x << L',' << sc_pt.y
+			<< L" center_pos: " << ce_pt.x << L',' << ce_pt.y
+			<< debug_log;
+
+		//world_to_coord( point(0.65387928525909078,0.53869654418258694),
+		//	WGS84_Mercator);
+
+		//double zz = 2.97446;
 		/* Позиции экрана и его центра */
 		coord mouse_coord = screen_to_coord(
 			mouse_pos_, map_pr_, z_,
@@ -419,9 +441,13 @@ void Painter::after_repaint(const size &screen_size)
 		int lat_m, lon_m;
 		double lat_s, lon_s;
 
+		debug_log << L"cartographer::before DDToDMS()" << debug_log;
+
 		DDToDMS( mouse_coord,
 			&lat_sign, &lat_d, &lat_m, &lat_s,
 			&lon_sign, &lon_d, &lon_m, &lon_s);
+
+		debug_log << L"cartographer::before __swprintf()" << debug_log;
 
 		__swprintf(buf, sizeof(buf)/sizeof(*buf),
 			L"z: %.1f | lat: %s%d°%02d\'%05.2f\" lon: %s%d°%02d\'%05.2f\"",
@@ -432,6 +458,8 @@ void Painter::after_repaint(const size &screen_size)
 		status_str = buf;
 	}
 
+	debug_log << L"cartographer::after_repaint() before on_status()" << debug_log;
+
 	if (on_status_)
 		on_status_(status_str);
 
@@ -439,6 +467,8 @@ void Painter::after_repaint(const size &screen_size)
 		point(4.0, screen_size.height),
 		cartographer::color(1.0, 1.0, 1.0),
 		cartographer::ratio(0.0, 1.0));
+
+	debug_log << L"~ cartographer::after_repaint()" << debug_log;
 }
 
 } /* namespace cartographer */

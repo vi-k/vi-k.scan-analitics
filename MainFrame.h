@@ -26,7 +26,7 @@
 
 #include <libpq-fe.h>
 
-class MainFrame: public wxFrame, my::employer
+class MainFrame: my::employer, public wxFrame
 {
 	public:
 
@@ -41,9 +41,9 @@ class MainFrame: public wxFrame, my::employer
         int WiFi_sock_;
         unsigned char WiFi_mac_[6];
 		PGresult *WiFi_data_;
-		mutex WiFi_mutex_;
         int WiFi_min_power_, WiFi_max_power_;
         //cartographer::coord min_pt_, max_pt_;
+		mutex WiFi_mutex_;
 
         void WiFiScanProc(my::worker::ptr this_worker);
         void UpdateWiFiData();
@@ -74,6 +74,9 @@ class MainFrame: public wxFrame, my::employer
 		int Gps_image_id_;
 
 		void GpsTrackerProc(my::worker::ptr this_worker);
+
+
+		void CheckerProc(my::worker::ptr this_worker);
 
 
 		void Test(); /* Тестирование функций Картографера */
@@ -109,6 +112,8 @@ class MainFrame: public wxFrame, my::employer
 		void OnAnchorButtonClick(wxCommandEvent& event);
 		void OnWiFiScanButtonClicked(wxCommandEvent& event);
 		//*)
+
+		void OnIdle(wxIdleEvent& event);
 
 		//(*Identifiers(MainFrame)
 		static const long ID_COMBOBOX1;
