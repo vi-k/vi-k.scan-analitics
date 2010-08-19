@@ -415,39 +415,31 @@ void Painter::after_repaint(const size &screen_size)
 	{
 		wchar_t buf[200];
 
-		debug_log << L"cartographer::before screen_to_coord()" << debug_log;
-
 		point sc_pt = screen_pos_.get_world_pos(map_pr_);
 		point ce_pt = center_pos_.get_pos();
 
+		/*-
 		debug_log
 			<< L"mouse_pos: " << mouse_pos_.x << L',' << mouse_pos_.y
 			<< L" z_: " << z_
 			<< L" screen_pos: " << sc_pt.x << L',' << sc_pt.y
 			<< L" center_pos: " << ce_pt.x << L',' << ce_pt.y
 			<< debug_log;
+		-*/
 
-		//world_to_coord( point(0.65387928525909078,0.53869654418258694),
-		//	WGS84_Mercator);
-
-		//double zz = 2.97446;
-		/* Позиции экрана и его центра */
 		coord mouse_coord = screen_to_coord(
 			mouse_pos_, map_pr_, z_,
-			screen_pos_.get_world_pos(map_pr_), center_pos_.get_pos());
+			screen_pos_.get_world_pos(map_pr_),
+			center_pos_.get_pos());
 
 		int lat_sign, lon_sign;
 		int lat_d, lon_d;
 		int lat_m, lon_m;
 		double lat_s, lon_s;
 
-		debug_log << L"cartographer::before DDToDMS()" << debug_log;
-
 		DDToDMS( mouse_coord,
 			&lat_sign, &lat_d, &lat_m, &lat_s,
 			&lon_sign, &lon_d, &lon_m, &lon_s);
-
-		debug_log << L"cartographer::before __swprintf()" << debug_log;
 
 		__swprintf(buf, sizeof(buf)/sizeof(*buf),
 			L"z: %.1f | lat: %s%d°%02d\'%05.2f\" lon: %s%d°%02d\'%05.2f\"",
@@ -457,8 +449,6 @@ void Painter::after_repaint(const size &screen_size)
 
 		status_str = buf;
 	}
-
-	debug_log << L"cartographer::after_repaint() before on_status()" << debug_log;
 
 	if (on_status_)
 		on_status_(status_str);

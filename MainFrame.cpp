@@ -605,6 +605,8 @@ void MainFrame::OnAnchorButtonClick(wxCommandEvent& event)
 	}
 	else
 	{
+		lets_finish(GpsTracker_worker_, false);
+
 		boost::thread( boost::bind(
 			&MainFrame::GpsTrackerProc, this, GpsTracker_worker_) );
 
@@ -825,8 +827,8 @@ void MainFrame::UpdateWiFiData()
 		}
 	}
 
-	//lock.unlock();
-	//SetTitle(title);
+	lock.unlock();
+	SetTitle(title);
 }
 
 void MainFrame::CheckerProc(my::worker::ptr this_worker)
