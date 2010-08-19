@@ -23,6 +23,8 @@ extern my::log debug_log;
 #include <wx/string.h>
 //*)
 
+#include <wx/config.h>
+
 #include "images/green_mark16.c"
 #include "images/red_mark16.c"
 #include "images/yellow_mark16.c"
@@ -136,8 +138,20 @@ MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
 		SetIcon(FrameIcon);
 	}
 
-	SetClientSize(400, 400);
-	Maximize(true);
+	wxConfig config("scan_analitics");
+
+	{
+		int w, h;
+		bool maximized;
+
+		config.Read(L"/MainFrame/Width", &w, 400);
+		config.Read(L"/MainFrame/Height", &h, 400);
+		config.Read(L"/MainFrame/Maximized", &maximized, true);
+
+		SetClientSize(w, h);
+		Maximize(maximized);
+	}
+
 	Show(true);
 
 	Cartographer = new cartographer::Painter(this, L"cache");
@@ -240,6 +254,21 @@ MainFrame::~MainFrame()
 
 	//(*Destroy(MainFrame)
 	//*)
+
+	wxConfig config("scan_analitics");
+
+	{
+		bool maximized = IsMaximized();
+
+		if (!maximized)
+		{
+			wxSize sz = GetClientSize();
+			config.Write(L"/MainFrame/Width", sz.GetWidth());
+			config.Write(L"/MainFrame/Height", sz.GetHeight());
+		}
+
+		config.Write(L"/MainFrame/Maximized", maximized);
+	}
 }
 
 bool MainFrame::PgConnect()
