@@ -193,7 +193,7 @@ MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
 
 	/* Изображения */
 	gps_tracker_id_ = Cartographer->LoadImageFromC(gps_tracker);
-	Cartographer->SetImageCentralPoint(gps_tracker_id_, 12.0, 19.0);
+	Cartographer->SetImageCentralPoint(gps_tracker_id_, 15.5, 19.0);
 
 	green_mark16_id_ = Cartographer->LoadImageFromC(green_mark16);
 	red_mark16_id_ = Cartographer->LoadImageFromC(red_mark16);
