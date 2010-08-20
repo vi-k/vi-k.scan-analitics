@@ -25,6 +25,7 @@ extern my::log debug_log;
 
 #include <wx/config.h>
 
+#include "images/gps_tracker.c"
 #include "images/green_mark16.c"
 #include "images/red_mark16.c"
 #include "images/yellow_mark16.c"
@@ -40,8 +41,10 @@ const long MainFrame::ID_MENU_ABOUT = wxNewId();
 const long MainFrame::ID_STATUSBAR1 = wxNewId();
 const long MainFrame::ID_ZOOMIN = wxNewId();
 const long MainFrame::ID_ZOOMOUT = wxNewId();
-const long MainFrame::ID_ANCHOR = wxNewId();
+const long MainFrame::ID_GPSTRACKER = wxNewId();
+const long MainFrame::ID_GPSANCHOR = wxNewId();
 const long MainFrame::ID_WIFISCAN = wxNewId();
+const long MainFrame::ID_WIFIANCHOR = wxNewId();
 const long MainFrame::ID_TOOLBAR1 = wxNewId();
 //*)
 
@@ -54,6 +57,7 @@ END_EVENT_TABLE()
 MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
 	: my::employer("MainFrame_employer")
 	, Cartographer(0)
+	, Anchor_(NoAnchor)
 	, WiFi_sock_(0)
 	, WiFi_data_(NULL)
 	, WiFi_min_power_(-100)
@@ -61,6 +65,7 @@ MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
 	, MY_MUTEX_DEF(WiFi_mutex_,true)
 	, big_font_(0)
 	, small_font_(0)
+	, gps_tracker_id_(0)
 	, green_mark16_id_(0)
 	, red_mark16_id_(0)
 	, yellow_mark16_id_(0)
@@ -115,8 +120,12 @@ MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
 	ToolBar1 = new wxToolBar(this, ID_TOOLBAR1, wxDefaultPosition, wxDefaultSize, wxTB_HORIZONTAL|wxNO_BORDER, _T("ID_TOOLBAR1"));
 	ToolBarItem1 = ToolBar1->AddTool(ID_ZOOMIN, _("ZoomIn"), wxBitmap(wxImage(_T("images/zoom-in-32.png"))), wxNullBitmap, wxITEM_NORMAL, _("Увеличить"), wxEmptyString);
 	ToolBarItem2 = ToolBar1->AddTool(ID_ZOOMOUT, _("ZoomOut"), wxBitmap(wxImage(_T("images/zoom-out-32.png"))), wxNullBitmap, wxITEM_NORMAL, _("Уменьшить"), wxEmptyString);
-	ToolBarItem3 = ToolBar1->AddTool(ID_ANCHOR, _("Anchor"), wxBitmap(wxImage(_T("images/ylw-pushpin32.png"))), wxNullBitmap, wxITEM_CHECK, _("Следить"), wxEmptyString);
-	ToolBarItem4 = ToolBar1->AddTool(ID_WIFISCAN, _("WiFiScan"), wxBitmap(wxImage(_T("images/wifi.png"))), wxNullBitmap, wxITEM_CHECK, wxEmptyString, wxEmptyString);
+	ToolBar1->AddSeparator();
+	ToolBarItem3 = ToolBar1->AddTool(ID_GPSTRACKER, _("GpsTracker"), wxBitmap(wxImage(_T("images/gps_tracker.png"))), wxNullBitmap, wxITEM_CHECK, _("Gps"), wxEmptyString);
+	ToolBarItem4 = ToolBar1->AddTool(ID_GPSANCHOR, _("GpsAnchor"), wxBitmap(wxImage(_T("images/ylw-pushpin32.png"))), wxNullBitmap, wxITEM_CHECK, _("Следить за Gps"), wxEmptyString);
+	ToolBar1->AddSeparator();
+	ToolBarItem5 = ToolBar1->AddTool(ID_WIFISCAN, _("WiFiScan"), wxBitmap(wxImage(_T("images/wifi.png"))), wxNullBitmap, wxITEM_CHECK, _("WiFi"), wxEmptyString);
+	ToolBarItem6 = ToolBar1->AddTool(ID_WIFIANCHOR, _("WiFiAnchor"), wxBitmap(wxImage(_T("images/ylw-pushpin32.png"))), wxNullBitmap, wxITEM_CHECK, _("Следить за WiFi"), wxEmptyString);
 	ToolBar1->Realize();
 	SetToolBar(ToolBar1);
 	FlexGridSizer1->SetSizeHints(this);
@@ -126,8 +135,10 @@ MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
 	Connect(ID_MENU_ABOUT,wxEVT_COMMAND_MENU_SELECTED,(wxObjectEventFunction)&MainFrame::OnAbout);
 	Connect(ID_ZOOMIN,wxEVT_COMMAND_TOOL_CLICKED,(wxObjectEventFunction)&MainFrame::OnZoomInButtonClick);
 	Connect(ID_ZOOMOUT,wxEVT_COMMAND_TOOL_CLICKED,(wxObjectEventFunction)&MainFrame::OnZoomOutButtonClick);
-	Connect(ID_ANCHOR,wxEVT_COMMAND_TOOL_CLICKED,(wxObjectEventFunction)&MainFrame::OnAnchorButtonClick);
+	Connect(ID_GPSTRACKER,wxEVT_COMMAND_TOOL_CLICKED,(wxObjectEventFunction)&MainFrame::OnGpsTrackerClick);
+	Connect(ID_GPSANCHOR,wxEVT_COMMAND_TOOL_CLICKED,(wxObjectEventFunction)&MainFrame::OnGpsAnchorClick);
 	Connect(ID_WIFISCAN,wxEVT_COMMAND_TOOL_CLICKED,(wxObjectEventFunction)&MainFrame::OnWiFiScanButtonClicked);
+	Connect(ID_WIFIANCHOR,wxEVT_COMMAND_TOOL_CLICKED,(wxObjectEventFunction)&MainFrame::OnWiFiAnchorClick);
 	//*)
 
 	setlocale(LC_NUMERIC, "C");
@@ -181,17 +192,12 @@ MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
 	ComboBox1->SetValue(map.name);
 
 	/* Изображения */
+	gps_tracker_id_ = Cartographer->LoadImageFromC(gps_tracker);
+	Cartographer->SetImageCentralPoint(gps_tracker_id_, 12.0, 19.0);
+
 	green_mark16_id_ = Cartographer->LoadImageFromC(green_mark16);
 	red_mark16_id_ = Cartographer->LoadImageFromC(red_mark16);
 	yellow_mark16_id_ = Cartographer->LoadImageFromC(yellow_mark16);
-
-	//Gps_image_id_ = Cartographer->LoadImageFromFile(L"images/down.png");
-	//Cartographer->SetImageCentralPoint(Gps_image_id_, 15.5, 31.0);
-	//Cartographer->SetImageScale(Gps_image_id_, 0.5);
-
-	Gps_image_id_ = Cartographer->LoadImageFromFile(L"images/ylw-pushpin.png");
-	Cartographer->SetImageCentralPoint(Gps_image_id_, 18.0, 63.0);
-	Cartographer->SetImageScale(Gps_image_id_, 0.5);
 
 
 	/* Запускаем собственную прорисовку */
@@ -318,176 +324,6 @@ void MainFrame::OnComboBox1Select(wxCommandEvent& event)
 	Cartographer->SetActiveMapByName(str);
 }
 
-void MainFrame::DrawImage(int id, const cartographer::coord &pt, double alpha)
-{
-	if (id == 0)
-		return;
-
-	cartographer::point pos = Cartographer->CoordToScreen(pt);
-	const double z = Cartographer->GetActiveZ();
-
-	glColor4d(1.0, 1.0, 1.0, alpha);
-	Cartographer->DrawImage(id, pos, z < 6.0 ? z / 6.0 : 1.0);
-}
-
-void MainFrame::DrawCircle(const cartographer::coord &pt,
-	double r, double line_width, const cartographer::color &line_color,
-	const cartographer::color &fill_color)
-{
-	const double z = Cartographer->GetActiveZ();
-
-	cartographer::point pt_pos = Cartographer->CoordToScreen(pt);
-
-	/* Сначала заполняем, потом рисуем окружность */
-	for (int n = 0; n < 2; ++n)
-	{
-		if (n == 0)
-		{
-			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-			glBegin(GL_POLYGON);
-			glColor4dv(&fill_color.r);
-		}
-		else
-		{
-			glLineWidth( z >= 6.0 ? line_width : line_width * (z / 6.0) );
-			glBegin(GL_LINE_LOOP);
-			glColor4dv(&line_color.r);
-		}
-
-		const double step = 3.0;
-		for (double a = step / 2.0; a < 360.0; a += step)
-		{
-			cartographer::coord ptN = cartographer::Direct(pt, a, r);
-			cartographer::point ptN_pos = Cartographer->CoordToScreen(ptN);
-			glVertex3d(ptN_pos.x, ptN_pos.y, 0);
-		}
-		glEnd();
-	}
-}
-
-void MainFrame::DrawSimpleCircle(const cartographer::point &pos,
-	double r, double line_width, const cartographer::color &line_color,
-	const cartographer::color &fill_color)
-{
-	/* Сначала заполняем, потом рисуем окружность */
-	for (int n = 0; n < 2; ++n)
-	{
-		if (n == 0)
-		{
-			glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-			glBegin(GL_POLYGON);
-			glColor4dv(&fill_color.r);
-		}
-		else
-		{
-			glLineWidth(line_width);
-			glBegin(GL_LINE_LOOP);
-			glColor4dv(&line_color.r);
-		}
-
-		const double step = M_PI / 18.0;
-		for (double a = step / 2.0; a < 2.0 * M_PI; a += step)
-		{
-			double x = r * cos(a);
-			double y = r * sin(a);
-			glVertex3d(pos.x + x, pos.y + y, 0);
-		}
-		glEnd();
-	}
-}
-
-double MainFrame::DrawPath(const cartographer::coord &pt1,
-	const cartographer::coord &pt2,
-	double line_width, const cartographer::color &line_color,
-	double *p_azimuth, double *p_rev_azimuth)
-{
-	/* Находим расстояние и начальный азимут */
-	double azimuth;
-	double distance = cartographer::Inverse(pt1, pt2, &azimuth, NULL, 1000.0);
-
-	if (p_azimuth)
-		*p_azimuth = azimuth;
-
-	DrawPath(pt1, azimuth, distance, line_width, line_color, p_rev_azimuth);
-
-	return distance;
-}
-
-cartographer::coord MainFrame::DrawPath(const cartographer::coord &pt,
-	double azimuth, double distance,
-	double line_width, const cartographer::color &line_color,
-	double *p_rev_azimuth)
-{
-	const double z = Cartographer->GetActiveZ();
-
-	glLineWidth( z >= 6.0 ? line_width : line_width * (z / 6.0) );
-	glBegin(GL_LINE_STRIP);
-	glColor4dv(&line_color.r);
-
-	cartographer::coord ptN;
-	cartographer::point ptN_pos;
-
-	/* Делим путь на равные промежутки и вычисляем координаты узлов */
-	for (int i = 0; i <= 100; ++i)
-	{
-		double d = distance / 100.0 * i;
-
-		/* Сохраняем старое значение */
-		cartographer::coord ptP = ptN;
-		cartographer::point ptP_pos = ptN_pos;
-
-		/* Получаем новое */
-		ptN = cartographer::Direct(pt, azimuth, d, p_rev_azimuth);
-		ptN_pos = Cartographer->CoordToScreen(ptN);
-
-		/* Проверяем переход с одной стороны карты на другую */
-		if (ptP.lon * ptN.lon < 0.0 && abs(ptN.lon) > 170.0)
-		{
-			/* Ищем среднюю точку, на которой произошёл переход */
-			const double k = (180.0 - abs(ptP.lon)) / (360.0 - abs(ptN.lon - ptP.lon));
-			const double mid_lat = ptP.lat + (ptN.lat - ptP.lat) * k;
-			cartographer::coord ptM_N(mid_lat, ptN.lon < 0.0 ? -180.0 : 180.0);
-			cartographer::coord ptM_P(mid_lat, ptP.lon < 0.0 ? -180.0 : 180.0);
-
-			cartographer::point ptM_N_pos = Cartographer->CoordToScreen(ptM_N);
-			cartographer::point ptM_P_pos = Cartographer->CoordToScreen(ptM_P);
-
-			/* Дочерчиваем линию на предыдущей стороне */
-			glVertex3d(ptM_P_pos.x, ptM_P_pos.y, 0);
-			glEnd();
-
-			/* ... и переходим на новую сторону */
-			glBegin(GL_LINE_STRIP);
-			glColor4dv(&line_color.r);
-			glVertex3d(ptM_N_pos.x, ptM_N_pos.y, 0);
-
-			#if 0
-			/* Позиция новой точки на обратной стороне карты */
-			cartographer::point ptN_pos_ = Cartographer->CoordToScreen( cartographer::coord(
-				ptN.lat, ptN.lon < 0.0 ? ptN.lon + 360.0 : ptN.lon - 360.0) );
-
-			/* Позиция старой точки на обратной стороне карты */
-			cartographer::point ptP_pos_ = Cartographer->CoordToScreen( cartographer::coord(
-				ptP.lat, ptP.lon < 0.0 ? ptP.lon + 360.0 : ptP.lon - 360.0) );
-
-			/* Дочерчиваем линию на предыдущей стороне */
-			glVertex3d(ptN_pos_.x, ptN_pos_.y, 0);
-			glEnd();
-
-			/* ... и переходим на новую сторону */
-			glBegin(GL_LINE_STRIP);
-			glColor4dv(&line_color.r);
-			glVertex3d(ptP_pos_.x, ptP_pos_.y, 0);
-			#endif
-		}
-
-		glVertex3d(ptN_pos.x, ptN_pos.y, 0);
-	}
-	glEnd();
-
-	return ptN;
-}
-
 void MainFrame::OnMapPaint(double z, const cartographer::size &screen_size)
 {
 	/*-
@@ -527,8 +363,6 @@ void MainFrame::OnMapPaint(double z, const cartographer::size &screen_size)
 				sscanf(lat_s, "%lf", &pt.lat);
 				sscanf(lon_s, "%lf", &pt.lon);
 
-				cartographer::point pos = Cartographer->CoordToScreen(pt);
-
 				double power_k = (power - min_power) / (double)delta_power;
 
 				if (power_k < 0.0)
@@ -537,16 +371,26 @@ void MainFrame::OnMapPaint(double z, const cartographer::size &screen_size)
 				if (power_k > 1.0)
 					power_k = 1.0;
 
+				/*-
 				if (power_k < 0.5)
 				{
-					DrawImage(green_mark16_id_, pt);
-					DrawImage(yellow_mark16_id_, pt, 2.0 * power_k);
+					Cartographer->DrawImage(green_mark16_id_, pt);
+					Cartographer->DrawImage(yellow_mark16_id_, pt, 2.0 * power_k);
 				}
 				else
 				{
 					DrawImage(yellow_mark16_id_, pt);
 					DrawImage(red_mark16_id_, pt, 2.0 * (power_k - 0.5));
 				}
+				-*/
+
+				double red_k = power_k < 0.5 ? 1.0 : 2.0 * (1.0 - power_k);
+				double green_k = power_k < 0.5 ? 2.0 * power_k : 1.0;
+
+				Cartographer->DrawSimpleCircle(
+					Cartographer->CoordToScreen(pt), 5.0, 2.0,
+					cartographer::color(red_k, green_k, 0.0),
+					cartographer::color(red_k, green_k, 0.0, 0.3));
 
 				/*-
 				pos.y += 5.0;
@@ -568,9 +412,14 @@ void MainFrame::OnMapPaint(double z, const cartographer::size &screen_size)
 		}
 	}
 
+
 	{
 		unique_lock<mutex> lock(Gps_mutex_);
-		DrawImage(Gps_image_id_, Gps_pt_);
+		cartographer::coord pt = Gps_pt_;
+		double angle = Gps_azimuth_;
+		lock.unlock();
+
+		Cartographer->DrawImage(gps_tracker_id_, pt, 1.0, 1.0, angle);
 	}
 }
 
@@ -623,14 +472,193 @@ void MainFrame::OnZoomOutButtonClick(wxCommandEvent& event)
 	Cartographer->ZoomOut();
 }
 
-void MainFrame::OnAnchorButtonClick(wxCommandEvent& event)
+void MainFrame::OnWiFiScanButtonClicked(wxCommandEvent& event)
+{
+	unique_lock<mutex> lock(WiFi_mutex_);
+
+	if (WiFiScan_worker_.use_count() != 2)
+	{
+		close(WiFi_sock_);
+		ToolBar1->ToggleTool(ID_WIFISCAN, false);
+	}
+	else
+	{
+		struct sockaddr_un remote;
+
+		if ((WiFi_sock_ = socket(AF_UNIX, SOCK_STREAM, 0)) == -1)
+		{
+			WiFi_sock_ = 0;
+			lock.unlock();
+
+			wxMessageBox(L"Error in socket()", L"Error", wxOK | wxICON_ERROR);
+			ToolBar1->ToggleTool(ID_WIFISCAN, false);
+			return;
+		}
+
+		remote.sun_family = AF_UNIX;
+		strcpy(remote.sun_path, "/tmp/wifiscan.sock");
+		size_t len = strlen(remote.sun_path) + sizeof(remote.sun_family);
+
+		if (connect(WiFi_sock_, (struct sockaddr *)&remote, len) == -1)
+		{
+			close(WiFi_sock_);
+			WiFi_sock_ = 0;
+			lock.unlock();
+
+			wxMessageBox(L"Error in connect()", L"Error", wxOK | wxICON_ERROR);
+			ToolBar1->ToggleTool(ID_WIFISCAN, false);
+			return;
+		}
+
+		boost::thread( boost::bind(
+			&MainFrame::WiFiScanProc, this, WiFiScan_worker_) );
+	}
+}
+
+void MainFrame::WiFiScanProc(my::worker::ptr this_worker)
+{
+	MY_REGISTER_THREAD("WiFiScan");
+
+	while (!finish())
+	{
+		unsigned char buf[100];
+
+		int sz = recv(WiFi_sock_, buf, 6, 0);
+
+		if (sz == -1)
+			break;
+
+		if (sz != 6)
+			continue;
+
+		{
+			unique_lock<mutex> l(WiFi_mutex_);
+			memcpy(WiFi_mac_, buf, 6);
+		}
+
+		UpdateWiFiData();
+	}
+
+	close(WiFi_sock_);
+	WiFi_sock_ = 0;
+}
+
+void MainFrame::UpdateWiFiData()
+{
+	if (!PgConnect())
+		return;
+
+	wchar_t title[100] = { L"Scan Analitics" };
+
+	unsigned char wifi_mac[6];
+
+	{
+		unique_lock<mutex> lock(WiFi_mutex_);
+
+		if (WiFi_data_)
+		{
+			PQclear(WiFi_data_);
+			WiFi_data_ = NULL;
+		}
+
+		memcpy(wifi_mac, WiFi_mac_, 6);
+	}
+
+	if (memcmp(wifi_mac, "\0\0\0\0\0\0", 6) != 0)
+	{
+		unique_lock<mutex> l(pg_mutex_);
+
+		swprintf( title, sizeof(title) / sizeof(*title),
+			L"Scan Analitics (%02X:%02X:%02X:%02X:%02X:%02X)",
+			wifi_mac[0], wifi_mac[1], wifi_mac[2],
+			wifi_mac[3], wifi_mac[4], wifi_mac[5] );
+
+		char buf[200];
+		snprintf( buf, sizeof(buf) / sizeof(*buf),
+			"SELECT * FROM wifi_scan_data"
+			" WHERE station_mac=\'%02X:%02X:%02X:%02X:%02X:%02X\'"
+			" ORDER BY scan_power",
+			wifi_mac[0], wifi_mac[1], wifi_mac[2],
+			wifi_mac[3], wifi_mac[4], wifi_mac[5] );
+
+		PGresult *wifi_data = PQexec(pg_conn_, buf);
+
+		if (PQresultStatus(wifi_data) != PGRES_TUPLES_OK)
+		{
+			fprintf(stderr, "Command failed: %s", PQerrorMessage(pg_conn_));
+			PQclear(wifi_data);
+		}
+		else
+		{
+			int count = PQntuples(wifi_data);
+
+			int wifi_min_power = 0;
+			int wifi_max_power = 0;
+
+			for (int i = 0; i < count; i++)
+			{
+				char *power_s = PQgetvalue(wifi_data, i, 3);
+				char *lat_s = PQgetvalue(wifi_data, i, 5);
+				char *lon_s = PQgetvalue(wifi_data, i, 6);
+
+				int power;
+				cartographer::coord pt;
+
+				sscanf(power_s, "%d", &power);
+				sscanf(lat_s, "%lf", &pt.lat);
+				sscanf(lon_s, "%lf", &pt.lon);
+
+				if (i == 0 || power < wifi_min_power)
+					wifi_min_power = power;
+
+				if (i == 0 || power > wifi_max_power)
+					wifi_max_power = power;
+
+				if (Anchor_ == WiFiAnchor && i == count - 1)
+					Cartographer->MoveTo(pt, cartographer::ratio(0.5, 0.5));
+			}
+
+			{
+				unique_lock<mutex> lock(WiFi_mutex_);
+				WiFi_data_ = wifi_data;
+				WiFi_min_power_ = wifi_min_power;
+				WiFi_max_power_ = wifi_max_power;
+			}
+		}
+	}
+
+	SetTitle(title);
+}
+
+void MainFrame::CheckerProc(my::worker::ptr this_worker)
+{
+	MY_REGISTER_THREAD("Checker");
+
+	while (!finish())
+	{
+		boost::this_thread::sleep( posix_time::milliseconds(1000) );
+		debug_log << L"CheckerProc()" << debug_log;
+	}
+}
+
+void MainFrame::OnIdle(wxIdleEvent& event)
+{
+	static posix_time::ptime start = my::time::utc_now();
+	if (my::time::utc_now() - start > posix_time::milliseconds(1000))
+	{
+		debug_log << L"OnIdle()" << debug_log;
+		start = my::time::utc_now();
+	}
+}
+
+void MainFrame::OnGpsTrackerClick(wxCommandEvent& event)
 {
 	unique_lock<mutex> lock(WiFi_mutex_);
 
 	if ( worked(GpsTracker_worker_) )
 	{
 		lets_finish(GpsTracker_worker_);
-		ToolBar1->ToggleTool(ID_ANCHOR, false);
+		ToolBar1->ToggleTool(ID_GPSTRACKER, false);
 	}
 	else
 	{
@@ -639,7 +667,7 @@ void MainFrame::OnAnchorButtonClick(wxCommandEvent& event)
 		boost::thread( boost::bind(
 			&MainFrame::GpsTrackerProc, this, GpsTracker_worker_) );
 
-		ToolBar1->ToggleTool(ID_ANCHOR, true);
+		ToolBar1->ToggleTool(ID_GPSTRACKER, true);
 	}
 }
 
@@ -688,7 +716,7 @@ void MainFrame::GpsTrackerProc(my::worker::ptr this_worker)
 		double gps_altitude;
 		bool gps_ok;
 
-		sprintf(buf, "GPSD,P=48.5 135.1,V=2.5,T=0.0,A=100.0");
+		sprintf(buf, "GPSD,P=48.5 135.1,V=2.5,T=45.0,A=100.0");
 
 		n = sscanf(buf, "GPSD,P=%lf %lf,V=%lf,T=%lf,A=%lf",
 			&gps_pt.lat, &gps_pt.lon,
@@ -712,171 +740,23 @@ void MainFrame::GpsTrackerProc(my::worker::ptr this_worker)
 			Gps_altitude_ = gps_altitude;
 		}
 
-		if (gps_ok)
-			Cartographer->MoveTo(gps_pt);
+		if (gps_ok && Anchor_ == GpsAnchor)
+			Cartographer->MoveTo(gps_pt, cartographer::ratio(0.5, 0.5));
 	}
 
 	close(gpsd_sock);
 }
 
-void MainFrame::OnWiFiScanButtonClicked(wxCommandEvent& event)
+void MainFrame::OnGpsAnchorClick(wxCommandEvent& event)
 {
-	unique_lock<mutex> lock(WiFi_mutex_);
-
-	if (WiFiScan_worker_.use_count() != 2)
-	{
-		close(WiFi_sock_);
-		ToolBar1->ToggleTool(ID_WIFISCAN, false);
-	}
-	else
-	{
-		struct sockaddr_un remote;
-
-		if ((WiFi_sock_ = socket(AF_UNIX, SOCK_STREAM, 0)) == -1)
-		{
-			WiFi_sock_ = 0;
-			lock.unlock();
-
-			wxMessageBox(L"Error in socket()", L"Error", wxOK | wxICON_ERROR);
-			ToolBar1->ToggleTool(ID_WIFISCAN, false);
-			return;
-		}
-
-		remote.sun_family = AF_UNIX;
-		strcpy(remote.sun_path, "/tmp/wifiscan.sock");
-		size_t len = strlen(remote.sun_path) + sizeof(remote.sun_family);
-
-		if (connect(WiFi_sock_, (struct sockaddr *)&remote, len) == -1)
-		{
-			close(WiFi_sock_);
-			WiFi_sock_ = 0;
-			lock.unlock();
-
-			wxMessageBox(L"Error in connect()", L"Error", wxOK | wxICON_ERROR);
-			ToolBar1->ToggleTool(ID_WIFISCAN, false);
-			return;
-		}
-
-		boost::thread( boost::bind(
-			&MainFrame::WiFiScanProc, this, WiFiScan_worker_) );
-
-		ToolBar1->ToggleTool(ID_WIFISCAN, true);
-	}
+	Anchor_ = GpsAnchor;
+	ToolBar1->ToggleTool(ID_WIFIANCHOR, false);
+	ToolBar1->ToggleTool(ID_GPSANCHOR, true);
 }
 
-void MainFrame::WiFiScanProc(my::worker::ptr this_worker)
+void MainFrame::OnWiFiAnchorClick(wxCommandEvent& event)
 {
-	MY_REGISTER_THREAD("WiFiScan");
-
-	while (!finish())
-	{
-		unsigned char buf[100];
-
-		int sz = recv(WiFi_sock_, buf, 6, 0);
-
-		if (sz == -1)
-			break;
-
-		if (sz != 6)
-			continue;
-
-		{
-			unique_lock<mutex> l(WiFi_mutex_);
-			memcpy(WiFi_mac_, buf, 6);
-		}
-
-		UpdateWiFiData();
-	}
-
-	close(WiFi_sock_);
-	WiFi_sock_ = 0;
-}
-
-void MainFrame::UpdateWiFiData()
-{
-	if (!PgConnect())
-		return;
-
-	wchar_t title[100] = { L"Scan Analitics" };
-
-	unique_lock<mutex> lock(WiFi_mutex_);
-
-	if (WiFi_data_)
-		PQclear(WiFi_data_);
-
-	if (memcmp(WiFi_mac_, "\0\0\0\0\0\0", 6) != 0)
-	{
-		swprintf( title, sizeof(title) / sizeof(*title),
-			L"Scan Analitics (%02X:%02X:%02X:%02X:%02X:%02X)",
-			WiFi_mac_[0], WiFi_mac_[1], WiFi_mac_[2],
-			WiFi_mac_[3], WiFi_mac_[4], WiFi_mac_[5] );
-
-		char buf[200];
-		snprintf( buf, sizeof(buf) / sizeof(*buf),
-			"SELECT * FROM wifi_scan_data"
-			" WHERE station_mac=\'%02X:%02X:%02X:%02X:%02X:%02X\'"
-			" ORDER BY scan_power",
-			WiFi_mac_[0], WiFi_mac_[1], WiFi_mac_[2],
-			WiFi_mac_[3], WiFi_mac_[4], WiFi_mac_[5] );
-
-		WiFi_data_ = PQexec(pg_conn_, buf);
-
-		if (PQresultStatus(WiFi_data_) != PGRES_TUPLES_OK)
-		{
-			fprintf(stderr, "Command failed: %s", PQerrorMessage(pg_conn_));
-			PQclear(WiFi_data_);
-			WiFi_data_ = 0;
-		}
-		else
-		{
-			int count = PQntuples(WiFi_data_);
-
-			for (int i = 0; i < count; i++)
-			{
-				char *power_s = PQgetvalue(WiFi_data_, i, 3);
-				char *lat_s = PQgetvalue(WiFi_data_, i, 5);
-				char *lon_s = PQgetvalue(WiFi_data_, i, 6);
-
-				int power;
-				cartographer::coord pt;
-
-				sscanf(power_s, "%d", &power);
-				sscanf(lat_s, "%lf", &pt.lat);
-				sscanf(lon_s, "%lf", &pt.lon);
-
-				if (i == 0 || power < WiFi_min_power_)
-					WiFi_min_power_ = power;
-
-				if (i == 0 || power > WiFi_max_power_)
-					WiFi_max_power_ = power;
-
-				if ( i == count - 1)
-					Cartographer->MoveTo(pt);
-			}
-		}
-	}
-
-	lock.unlock();
-	SetTitle(title);
-}
-
-void MainFrame::CheckerProc(my::worker::ptr this_worker)
-{
-	MY_REGISTER_THREAD("Checker");
-
-	while (!finish())
-	{
-		boost::this_thread::sleep( posix_time::milliseconds(1000) );
-		debug_log << L"CheckerProc()" << debug_log;
-	}
-}
-
-void MainFrame::OnIdle(wxIdleEvent& event)
-{
-	static posix_time::ptime start = my::time::utc_now();
-	if (my::time::utc_now() - start > posix_time::milliseconds(1000))
-	{
-		debug_log << L"OnIdle()" << debug_log;
-		start = my::time::utc_now();
-	}
+	Anchor_ = WiFiAnchor;
+	ToolBar1->ToggleTool(ID_GPSANCHOR, false);
+	ToolBar1->ToggleTool(ID_WIFIANCHOR, true);
 }

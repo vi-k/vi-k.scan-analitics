@@ -13,3 +13,4 @@ cache
 *.idb
 main.log
 stdafx.h.gch
+images/orig

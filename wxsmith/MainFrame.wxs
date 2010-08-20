@@ -69,17 +69,34 @@
 				<tooltip>Уменьшить</tooltip>
 				<handler function="OnZoomOutButtonClick" entry="EVT_TOOL" />
 			</object>
-			<object class="tool" name="ID_ANCHOR" variable="ToolBarItem3" member="yes">
-				<label>Anchor</label>
-				<bitmap>images/ylw-pushpin32.png</bitmap>
-				<tooltip>Следить</tooltip>
-				<handler function="OnAnchorButtonClick" entry="EVT_TOOL" />
+			<object class="separator" />
+			<object class="tool" name="ID_GPSTRACKER" variable="ToolBarItem3" member="yes">
+				<label>GpsTracker</label>
+				<bitmap>images/gps_tracker.png</bitmap>
+				<tooltip>Gps</tooltip>
+				<handler function="OnGpsTrackerClick" entry="EVT_TOOL" />
 				<check>1</check>
 			</object>
-			<object class="tool" name="ID_WIFISCAN" variable="ToolBarItem4" member="yes">
+			<object class="tool" name="ID_GPSANCHOR" variable="ToolBarItem4" member="yes">
+				<label>GpsAnchor</label>
+				<bitmap>images/ylw-pushpin32.png</bitmap>
+				<tooltip>Следить за Gps</tooltip>
+				<handler function="OnGpsAnchorClick" entry="EVT_TOOL" />
+				<check>1</check>
+			</object>
+			<object class="separator" />
+			<object class="tool" name="ID_WIFISCAN" variable="ToolBarItem5" member="yes">
 				<label>WiFiScan</label>
 				<bitmap>images/wifi.png</bitmap>
+				<tooltip>WiFi</tooltip>
 				<handler function="OnWiFiScanButtonClicked" entry="EVT_TOOL" />
+				<check>1</check>
+			</object>
+			<object class="tool" name="ID_WIFIANCHOR" variable="ToolBarItem6" member="yes">
+				<label>WiFiAnchor</label>
+				<bitmap>images/ylw-pushpin32.png</bitmap>
+				<tooltip>Следить за WiFi</tooltip>
+				<handler function="OnWiFiAnchorClick" entry="EVT_TOOL" />
 				<check>1</check>
 			</object>
 		</object>

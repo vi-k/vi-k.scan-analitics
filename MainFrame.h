@@ -29,12 +29,14 @@
 class MainFrame: my::employer, public wxFrame
 {
 	public:
-
 		MainFrame(wxWindow* parent,wxWindowID id = -1);
 		virtual ~MainFrame();
 
 	private:
 		cartographer::Painter *Cartographer;
+
+		enum { NoAnchor, GpsAnchor, WiFiAnchor };
+		int Anchor_;
 
 		/* WiFiScan */
         my::worker::ptr WiFiScan_worker_;
@@ -53,6 +55,7 @@ class MainFrame: my::employer, public wxFrame
 		int small_font_;
 
 		/* Изображения */
+		int gps_tracker_id_;
 		int green_mark16_id_;
 		int red_mark16_id_;
 		int yellow_mark16_id_;
@@ -71,7 +74,6 @@ class MainFrame: my::employer, public wxFrame
 		double Gps_altitude_;
 		bool Gps_ok_;
 		mutex Gps_mutex_;
-		int Gps_image_id_;
 
 		void GpsTrackerProc(my::worker::ptr this_worker);
 
@@ -84,33 +86,16 @@ class MainFrame: my::employer, public wxFrame
 		void OnMapPaint(double z, const cartographer::size &screen_size);
 		void StatusHandler(std::wstring &str);
 
-		void DrawImage(int id, const cartographer::coord &pt, double alpha = 1.0);
-        void DrawSimpleCircle(const cartographer::point &pos,
-            double r, double line_width, const cartographer::color &line_color,
-            const cartographer::color &fill_color);
-
-		void DrawCircle(const cartographer::coord &pt,
-			double r, double line_width, const cartographer::color &line_color,
-			const cartographer::color &fill_color);
-
-		double DrawPath(const cartographer::coord &pt1,
-			const cartographer::coord &pt2,
-			double line_width, const cartographer::color &line_color,
-			double *p_azimuth = NULL, double *p_rev_azimuth = NULL);
-
-		cartographer::coord DrawPath(const cartographer::coord &pt,
-			double azimuth, double distance,
-			double line_width, const cartographer::color &line_color,
-			double *p_rev_azimuth = NULL);
-
 		//(*Handlers(MainFrame)
 		void OnQuit(wxCommandEvent& event);
 		void OnAbout(wxCommandEvent& event);
 		void OnComboBox1Select(wxCommandEvent& event);
 		void OnZoomInButtonClick(wxCommandEvent& event);
 		void OnZoomOutButtonClick(wxCommandEvent& event);
-		void OnAnchorButtonClick(wxCommandEvent& event);
 		void OnWiFiScanButtonClicked(wxCommandEvent& event);
+		void OnGpsAnchorClick(wxCommandEvent& event);
+		void OnGpsTrackerClick(wxCommandEvent& event);
+		void OnWiFiAnchorClick(wxCommandEvent& event);
 		//*)
 
 		void OnIdle(wxIdleEvent& event);
@@ -124,8 +109,10 @@ class MainFrame: my::employer, public wxFrame
 		static const long ID_STATUSBAR1;
 		static const long ID_ZOOMIN;
 		static const long ID_ZOOMOUT;
-		static const long ID_ANCHOR;
+		static const long ID_GPSTRACKER;
+		static const long ID_GPSANCHOR;
 		static const long ID_WIFISCAN;
+		static const long ID_WIFIANCHOR;
 		static const long ID_TOOLBAR1;
 		//*)
 
@@ -134,9 +121,11 @@ class MainFrame: my::employer, public wxFrame
 		wxToolBar* ToolBar1;
 		wxToolBarToolBase* ToolBarItem3;
 		wxPanel* Panel1;
+		wxToolBarToolBase* ToolBarItem6;
 		wxToolBarToolBase* ToolBarItem1;
 		wxStatusBar* StatusBar1;
 		wxComboBox* ComboBox1;
+		wxToolBarToolBase* ToolBarItem5;
 		wxPanel* Panel2;
 		wxFlexGridSizer* FlexGridSizer1;
 		wxToolBarToolBase* ToolBarItem2;
