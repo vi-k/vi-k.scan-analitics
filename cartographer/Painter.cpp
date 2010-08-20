@@ -189,14 +189,16 @@ void Painter::MoveTo(const coord &pt, const ratio &center)
 {
 	unique_lock<recursive_mutex> lock(params_mutex_);
 	screen_pos_ = pt;
-	center_pos_.set_rel_pos(center);
+	if (!move_mode_)
+		center_pos_.set_rel_pos(center);
 }
 
 void Painter::MoveTo(int z, const coord &pt, const ratio &center)
 {
 	unique_lock<recursive_mutex> lock(params_mutex_);
 	screen_pos_ = pt;
-	center_pos_.set_rel_pos(center);
+	if (!move_mode_)
+		center_pos_.set_rel_pos(center);
 	set_z(z);
 }
 
