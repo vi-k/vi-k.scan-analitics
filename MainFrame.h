@@ -86,6 +86,8 @@ class MainFrame: my::employer, public wxFrame
 		void OnMapPaint(double z, const cartographer::size &screen_size);
 		void StatusHandler(std::wstring &str);
 
+		void UpdateButtons();
+
 		//(*Handlers(MainFrame)
 		void OnQuit(wxCommandEvent& event);
 		void OnAbout(wxCommandEvent& event);

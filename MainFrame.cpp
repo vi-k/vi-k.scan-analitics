@@ -210,7 +210,7 @@ MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
 		{
 			wxMessageBox(L"Не удалось запустить Картограф"
 				L" с заданными настройками. Картограф запущен"
-				L" в режиме работы с кэшем\n\nОшибка:\n"
+				L" в режиме работы с кэшем.\n\nТекст ошибки:\n\n"
 				+ error, L"Ошибка", wxOK | wxICON_ERROR,
 				this);
 		}
@@ -457,11 +457,15 @@ void MainFrame::OnMapPaint(double z, const cartographer::size &screen_size)
 
 	{
 		unique_lock<mutex> lock(Gps_mutex_);
-		cartographer::coord pt = Gps_pt_;
-		double angle = Gps_azimuth_;
-		lock.unlock();
 
-		Cartographer->DrawImage(gps_tracker_id_, pt, 1.0, 1.0, angle);
+		if (Gps_ok_ && worked(GpsTracker_worker_))
+		{
+			cartographer::coord pt = Gps_pt_;
+			double angle = Gps_azimuth_;
+			lock.unlock();
+
+			Cartographer->DrawImage(gps_tracker_id_, pt, 1.0, 1.0, angle);
+		}
 	}
 }
 
@@ -685,6 +689,8 @@ void MainFrame::CheckerProc(my::worker::ptr this_worker)
 
 void MainFrame::OnIdle(wxIdleEvent& event)
 {
+	UpdateButtons();
+
 	static posix_time::ptime start = my::time::utc_now();
 	if (my::time::utc_now() - start > posix_time::milliseconds(1000))
 	{
@@ -695,7 +701,7 @@ void MainFrame::OnIdle(wxIdleEvent& event)
 
 void MainFrame::OnGpsTrackerClick(wxCommandEvent& event)
 {
-	unique_lock<mutex> lock(WiFi_mutex_);
+	unique_lock<mutex> lock(Gps_mutex_);
 
 	if ( worked(GpsTracker_worker_) )
 	{
@@ -792,13 +798,48 @@ void MainFrame::GpsTrackerProc(my::worker::ptr this_worker)
 void MainFrame::OnGpsAnchorClick(wxCommandEvent& event)
 {
 	Anchor_ = GpsAnchor;
-	ToolBar1->ToggleTool(ID_WIFIANCHOR, false);
-	ToolBar1->ToggleTool(ID_GPSANCHOR, true);
+	UpdateButtons();
 }
 
 void MainFrame::OnWiFiAnchorClick(wxCommandEvent& event)
 {
 	Anchor_ = WiFiAnchor;
-	ToolBar1->ToggleTool(ID_GPSANCHOR, false);
-	ToolBar1->ToggleTool(ID_WIFIANCHOR, true);
+	UpdateButtons();
+}
+
+void MainFrame::UpdateButtons()
+{
+	/* GpsTracker */
+	bool gps_enabled = worked(GpsTracker_worker_);
+	ToolBar1->ToggleTool(ID_GPSTRACKER, gps_enabled);
+	ToolBar1->EnableTool(ID_GPSANCHOR, gps_enabled);
+
+	/* WiFiScan */
+	bool wifi_enabled = worked(WiFiScan_worker_);
+	ToolBar1->ToggleTool(ID_WIFISCAN, wifi_enabled);
+	ToolBar1->EnableTool(ID_WIFIANCHOR, wifi_enabled);
+
+	/* Кнопки слежения */
+	switch (Anchor_)
+	{
+		case GpsAnchor:
+			ToolBar1->ToggleTool(ID_WIFIANCHOR, false);
+
+			if (!gps_enabled)
+				Anchor_ = NoAnchor;
+			else
+				ToolBar1->ToggleTool(ID_GPSANCHOR, true);
+
+			break;
+
+		case WiFiAnchor:
+			ToolBar1->ToggleTool(ID_GPSANCHOR, false);
+
+			if (!wifi_enabled)
+				Anchor_ = NoAnchor;
+			else
+				ToolBar1->ToggleTool(ID_WIFIANCHOR, true);
+
+			break;
+	}
 }
