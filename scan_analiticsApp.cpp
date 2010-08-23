@@ -23,6 +23,8 @@
 #include <fstream>
 #include <exception>
 
+wxFileConfig *MyConfig = NULL;
+
 std::wofstream main_log_stream;
 void on_main_log(const std::wstring &text)
 {
@@ -70,6 +72,11 @@ bool scan_analiticsApp::OnInit()
 
 	main_log << L"Start" << main_log;
 
+	/* Открываем файл настроек */
+	{
+		std::wstring path = fs::system_complete(L"scan_analitics.cfg").string();
+		MyConfig = new wxFileConfig(wxEmptyString, wxEmptyString, path);
+	}
 
 	//(*AppInitialize
 	bool wxsOK = true;
@@ -87,6 +94,9 @@ bool scan_analiticsApp::OnInit()
 
 int scan_analiticsApp::OnExit()
 {
+	delete MyConfig;
+	MyConfig = NULL;
+
 	main_log << L"Finish" << main_log;
 	return 0;
 }

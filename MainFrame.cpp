@@ -11,6 +11,7 @@
 
 extern my::log main_log;
 extern my::log debug_log;
+extern wxFileConfig *MyConfig;
 
 #include <string>
 #include <sstream>
@@ -22,8 +23,6 @@ extern my::log debug_log;
 #include <wx/image.h>
 #include <wx/string.h>
 //*)
-
-#include <wx/config.h>
 
 #include "images/gps_tracker.c"
 #include "images/green_mark16.c"
@@ -149,15 +148,13 @@ MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
 		SetIcon(FrameIcon);
 	}
 
-	wxConfig config("scan_analitics");
-
 	{
 		int w, h;
 		bool maximized;
 
-		config.Read(L"/MainFrame/Width", &w, 400);
-		config.Read(L"/MainFrame/Height", &h, 400);
-		config.Read(L"/MainFrame/Maximized", &maximized, true);
+		MyConfig->Read(L"/MainFrame/Width", &w, 400);
+		MyConfig->Read(L"/MainFrame/Height", &h, 400);
+		MyConfig->Read(L"/MainFrame/Maximized", &maximized, true);
 
 		SetClientSize(w, h);
 		Maximize(maximized);
@@ -165,13 +162,60 @@ MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
 
 	Show(true);
 
-	Cartographer = new cartographer::Painter(this, L"cache");
-	//Cartographer = new cartographer::Painter(this, L"172.16.19.1");
-	//Cartographer = new cartographer::Painter(this, L"127.0.0.1");
+	/* Создание Картографа на месте Panel1 */
+	{
+		delete Panel1;
 
-	delete Panel1;
-	FlexGridSizer1->Add(Cartographer, 1, wxALL|wxEXPAND|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 5);
-	SetSizer(FlexGridSizer1);
+		std::wstring error;
+
+		bool only_cache
+			= MyConfig->ReadBool(L"/Cartographer/only_cache", false);
+
+		if (!only_cache)
+		{
+			wxString str = MyConfig->Read(L"/Cartographer/server_addr", L"");
+			try
+			{
+				Cartographer = new cartographer::Painter(this,
+					(const wchar_t*)str.c_str());
+			}
+			catch (my::exception &e)
+			{
+				/* Не удалось создать Картограф - возможно
+					не получилось соединиться с сервером */
+				error = e.message();
+				only_cache = true;
+			}
+		}
+
+		if (only_cache)
+		{
+			try
+			{
+				Cartographer = new cartographer::Painter(this, L"cache");
+			}
+			catch (my::exception &e)
+			{
+				if (error.empty())
+					throw e;
+				else
+					throw my::exception(error);
+			}
+		}
+
+		FlexGridSizer1->Add(Cartographer, 1, wxALL|wxEXPAND|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 5);
+		SetSizer(FlexGridSizer1);
+
+		if (!error.empty())
+		{
+			wxMessageBox(L"Не удалось запустить Картограф"
+				L" с заданными настройками. Картограф запущен"
+				L" в режиме работы с кэшем\n\nОшибка:\n"
+				+ error, L"Ошибка", wxOK | wxICON_ERROR,
+				this);
+		}
+
+	} /* Создание Картографа */
 
 	/* Создаём шрифты */
 	big_font_ = Cartographer->CreateFont(
@@ -261,19 +305,17 @@ MainFrame::~MainFrame()
 	//(*Destroy(MainFrame)
 	//*)
 
-	wxConfig config("scan_analitics");
-
 	{
 		bool maximized = IsMaximized();
 
 		if (!maximized)
 		{
 			wxSize sz = GetClientSize();
-			config.Write(L"/MainFrame/Width", sz.GetWidth());
-			config.Write(L"/MainFrame/Height", sz.GetHeight());
+			MyConfig->Write(L"/MainFrame/Width", sz.GetWidth());
+			MyConfig->Write(L"/MainFrame/Height", sz.GetHeight());
 		}
 
-		config.Write(L"/MainFrame/Maximized", maximized);
+		MyConfig->Write(L"/MainFrame/Maximized", maximized);
 	}
 }
 

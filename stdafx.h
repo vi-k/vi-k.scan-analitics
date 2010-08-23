@@ -64,5 +64,6 @@
 #include <wx/dcgraph.h> /* wxGCDC и wxGraphicsContext */
 #include <wx/mstream.h>  /* wxMemoryInputStream */
 #include <wx/glcanvas.h> /* OpenGL */
+#include <wx/fileconf.h> /* wxFileConfig */
 
 #endif
