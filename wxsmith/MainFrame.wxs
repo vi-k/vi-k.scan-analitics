@@ -36,10 +36,24 @@
 		<object class="wxMenuBar" variable="MenuBar1" member="no">
 			<object class="wxMenu" variable="Menu1" member="no">
 				<label>Файл</label>
+				<object class="wxMenuItem" name="ID_MENUITEM3" variable="MenuItem5" member="yes">
+					<label>Настройки...</label>
+					<handler function="OnSettingsClick" entry="EVT_MENU" />
+				</object>
+				<object class="separator" />
 				<object class="wxMenuItem" name="ID_MENU_QUIT" variable="MenuItem1" member="no">
 					<label>Выход</label>
 					<accel>Alt-F4</accel>
 					<handler function="OnQuit" entry="EVT_MENU" />
+				</object>
+			</object>
+			<object class="wxMenu" variable="Menu3" member="yes">
+				<label>Вид</label>
+				<object class="wxMenu" name="ID_MENUITEM1" variable="MenuItem3" member="yes">
+					<label>Карты</label>
+					<object class="wxMenuItem" name="ID_MENUITEM2" variable="MenuItem4" member="yes">
+						<label>Карта</label>
+					</object>
 				</object>
 			</object>
 			<object class="wxMenu" variable="Menu2" member="no">
@@ -79,7 +93,7 @@
 			</object>
 			<object class="tool" name="ID_GPSANCHOR" variable="ToolBarItem4" member="yes">
 				<label>GpsAnchor</label>
-				<bitmap>images/ylw-pushpin32.png</bitmap>
+				<bitmap>images/knotes.png</bitmap>
 				<tooltip>Следить за Gps</tooltip>
 				<handler function="OnGpsAnchorClick" entry="EVT_TOOL" />
 				<check>1</check>
@@ -94,7 +108,7 @@
 			</object>
 			<object class="tool" name="ID_WIFIANCHOR" variable="ToolBarItem6" member="yes">
 				<label>WiFiAnchor</label>
-				<bitmap>images/ylw-pushpin32.png</bitmap>
+				<bitmap>images/knotes.png</bitmap>
 				<tooltip>Следить за WiFi</tooltip>
 				<handler function="OnWiFiAnchorClick" entry="EVT_TOOL" />
 				<check>1</check>

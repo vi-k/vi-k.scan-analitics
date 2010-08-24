@@ -6,8 +6,9 @@
  * Copyright: vi.k ()
  * License:
  **************************************************************/
-
+bool ppp = false;
 #include "MainFrame.h"
+#include "SettingsDialog.h"
 
 extern my::log main_log;
 extern my::log debug_log;
@@ -35,7 +36,10 @@ extern wxFileConfig *MyConfig;
 const long MainFrame::ID_COMBOBOX1 = wxNewId();
 const long MainFrame::ID_PANEL2 = wxNewId();
 const long MainFrame::ID_PANEL1 = wxNewId();
+const long MainFrame::ID_MENUITEM3 = wxNewId();
 const long MainFrame::ID_MENU_QUIT = wxNewId();
+const long MainFrame::ID_MENUITEM2 = wxNewId();
+const long MainFrame::ID_MENUITEM1 = wxNewId();
 const long MainFrame::ID_MENU_ABOUT = wxNewId();
 const long MainFrame::ID_STATUSBAR1 = wxNewId();
 const long MainFrame::ID_ZOOMIN = wxNewId();
@@ -59,8 +63,11 @@ MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
 	, Anchor_(NoAnchor)
 	, WiFi_sock_(0)
 	, WiFi_data_(NULL)
+	, WiFi_relative_mode_(true)
 	, WiFi_min_power_(-100)
-	, WiFi_max_power_(0)
+	, WiFi_max_power_(10)
+	, WiFi_min_power_abs_(-100)
+	, WiFi_max_power_abs_(10)
 	, MY_MUTEX_DEF(WiFi_mutex_,true)
 	, big_font_(0)
 	, small_font_(0)
@@ -102,9 +109,18 @@ MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
 	SetSizer(FlexGridSizer1);
 	MenuBar1 = new wxMenuBar();
 	Menu1 = new wxMenu();
+	MenuItem5 = new wxMenuItem(Menu1, ID_MENUITEM3, _("Настройки..."), wxEmptyString, wxITEM_NORMAL);
+	Menu1->Append(MenuItem5);
+	Menu1->AppendSeparator();
 	MenuItem1 = new wxMenuItem(Menu1, ID_MENU_QUIT, _("Выход\tAlt-F4"), wxEmptyString, wxITEM_NORMAL);
 	Menu1->Append(MenuItem1);
 	MenuBar1->Append(Menu1, _("Файл"));
+	Menu3 = new wxMenu();
+	MenuItem3 = new wxMenu();
+	MenuItem4 = new wxMenuItem(MenuItem3, ID_MENUITEM2, _("Карта"), wxEmptyString, wxITEM_NORMAL);
+	MenuItem3->Append(MenuItem4);
+	Menu3->Append(ID_MENUITEM1, _("Карты"), MenuItem3, wxEmptyString);
+	MenuBar1->Append(Menu3, _("Вид"));
 	Menu2 = new wxMenu();
 	MenuItem2 = new wxMenuItem(Menu2, ID_MENU_ABOUT, _("О программе...\tF1"), wxEmptyString, wxITEM_NORMAL);
 	Menu2->Append(MenuItem2);
@@ -121,15 +137,16 @@ MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
 	ToolBarItem2 = ToolBar1->AddTool(ID_ZOOMOUT, _("ZoomOut"), wxBitmap(wxImage(_T("images/zoom-out-32.png"))), wxNullBitmap, wxITEM_NORMAL, _("Уменьшить"), wxEmptyString);
 	ToolBar1->AddSeparator();
 	ToolBarItem3 = ToolBar1->AddTool(ID_GPSTRACKER, _("GpsTracker"), wxBitmap(wxImage(_T("images/gps_tracker.png"))), wxNullBitmap, wxITEM_CHECK, _("Gps"), wxEmptyString);
-	ToolBarItem4 = ToolBar1->AddTool(ID_GPSANCHOR, _("GpsAnchor"), wxBitmap(wxImage(_T("images/ylw-pushpin32.png"))), wxNullBitmap, wxITEM_CHECK, _("Следить за Gps"), wxEmptyString);
+	ToolBarItem4 = ToolBar1->AddTool(ID_GPSANCHOR, _("GpsAnchor"), wxBitmap(wxImage(_T("images/knotes.png"))), wxNullBitmap, wxITEM_CHECK, _("Следить за Gps"), wxEmptyString);
 	ToolBar1->AddSeparator();
 	ToolBarItem5 = ToolBar1->AddTool(ID_WIFISCAN, _("WiFiScan"), wxBitmap(wxImage(_T("images/wifi.png"))), wxNullBitmap, wxITEM_CHECK, _("WiFi"), wxEmptyString);
-	ToolBarItem6 = ToolBar1->AddTool(ID_WIFIANCHOR, _("WiFiAnchor"), wxBitmap(wxImage(_T("images/ylw-pushpin32.png"))), wxNullBitmap, wxITEM_CHECK, _("Следить за WiFi"), wxEmptyString);
+	ToolBarItem6 = ToolBar1->AddTool(ID_WIFIANCHOR, _("WiFiAnchor"), wxBitmap(wxImage(_T("images/knotes.png"))), wxNullBitmap, wxITEM_CHECK, _("Следить за WiFi"), wxEmptyString);
 	ToolBar1->Realize();
 	SetToolBar(ToolBar1);
 	FlexGridSizer1->SetSizeHints(this);
 
 	Connect(ID_COMBOBOX1,wxEVT_COMMAND_COMBOBOX_SELECTED,(wxObjectEventFunction)&MainFrame::OnComboBox1Select);
+	Connect(ID_MENUITEM3,wxEVT_COMMAND_MENU_SELECTED,(wxObjectEventFunction)&MainFrame::OnSettingsClick);
 	Connect(ID_MENU_QUIT,wxEVT_COMMAND_MENU_SELECTED,(wxObjectEventFunction)&MainFrame::OnQuit);
 	Connect(ID_MENU_ABOUT,wxEVT_COMMAND_MENU_SELECTED,(wxObjectEventFunction)&MainFrame::OnAbout);
 	Connect(ID_ZOOMIN,wxEVT_COMMAND_TOOL_CLICKED,(wxObjectEventFunction)&MainFrame::OnZoomInButtonClick);
@@ -147,6 +164,8 @@ MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
 		FrameIcon.CopyFromBitmap(wxBitmap(wxImage(_T("images/cartographer.png"))));
 		SetIcon(FrameIcon);
 	}
+
+	ReloadSettings();
 
 	{
 		int w, h;
@@ -169,11 +188,11 @@ MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
 		std::wstring error;
 
 		bool only_cache
-			= MyConfig->ReadBool(L"/Cartographer/only_cache", false);
+			= MyConfig->ReadBool(L"/Cartographer/OnlyCache", false);
 
 		if (!only_cache)
 		{
-			wxString str = MyConfig->Read(L"/Cartographer/server_addr", L"");
+			wxString str = MyConfig->Read(L"/Cartographer/ServerAddr", L"");
 			try
 			{
 				Cartographer = new cartographer::Painter(this,
@@ -381,8 +400,10 @@ void MainFrame::OnMapPaint(double z, const cartographer::size &screen_size)
 
 		if (lock.owns_lock() && WiFi_data_)
 		{
-			int min_power = WiFi_min_power_;
-			int max_power = WiFi_max_power_;
+			int min_power = WiFi_relative_mode_ ?
+				WiFi_min_power_ : WiFi_min_power_abs_;
+			int max_power = WiFi_relative_mode_ ?
+				WiFi_max_power_ : WiFi_max_power_abs_;
 			int delta_power = max_power - min_power;
 
 			if (delta_power == 0)
@@ -426,8 +447,8 @@ void MainFrame::OnMapPaint(double z, const cartographer::size &screen_size)
 				}
 				-*/
 
-				double red_k = power_k < 0.5 ? 1.0 : 2.0 * (1.0 - power_k);
-				double green_k = power_k < 0.5 ? 2.0 * power_k : 1.0;
+				double green_k = power_k < 0.5 ? 1.0 : 2.0 * (1.0 - power_k);
+				double red_k = power_k < 0.5 ? 2.0 * power_k : 1.0;
 
 				Cartographer->DrawSimpleCircle(
 					Cartographer->CoordToScreen(pt), 5.0, 2.0,
@@ -466,6 +487,14 @@ void MainFrame::OnMapPaint(double z, const cartographer::size &screen_size)
 
 			Cartographer->DrawImage(gps_tracker_id_, pt, 1.0, 1.0, angle);
 		}
+	}
+
+	if (ppp)
+	{
+		Cartographer->DrawText(small_font_,
+			L"TestTestTest", cartographer::point(screen_size) / 2.0,
+			cartographer::color(1.0, 1.0, 0.0),
+			cartographer::ratio(0.5, 0.5), cartographer::ratio(1.0, 1.0));
 	}
 }
 
@@ -640,6 +669,7 @@ void MainFrame::UpdateWiFiData()
 
 			int wifi_min_power = 0;
 			int wifi_max_power = 0;
+			cartographer::coord wifi_max_power_pt;
 
 			for (int i = 0; i < count; i++)
 			{
@@ -661,7 +691,10 @@ void MainFrame::UpdateWiFiData()
 					wifi_max_power = power;
 
 				if (Anchor_ == WiFiAnchor && i == count - 1)
+				{
+					wifi_max_power_pt = pt;
 					Cartographer->MoveTo(pt, cartographer::ratio(0.5, 0.5));
+				}
 			}
 
 			{
@@ -669,6 +702,7 @@ void MainFrame::UpdateWiFiData()
 				WiFi_data_ = wifi_data;
 				WiFi_min_power_ = wifi_min_power;
 				WiFi_max_power_ = wifi_max_power;
+				WiFi_max_power_pt_ = wifi_max_power_pt;
 			}
 		}
 	}
@@ -689,12 +723,11 @@ void MainFrame::CheckerProc(my::worker::ptr this_worker)
 
 void MainFrame::OnIdle(wxIdleEvent& event)
 {
-	UpdateButtons();
-
 	static posix_time::ptime start = my::time::utc_now();
-	if (my::time::utc_now() - start > posix_time::milliseconds(1000))
+	if (my::time::utc_now() - start > posix_time::milliseconds(100))
 	{
 		debug_log << L"OnIdle()" << debug_log;
+		UpdateButtons();
 		start = my::time::utc_now();
 	}
 }
@@ -764,7 +797,7 @@ void MainFrame::GpsTrackerProc(my::worker::ptr this_worker)
 		double gps_altitude;
 		bool gps_ok;
 
-		sprintf(buf, "GPSD,P=48.5 135.1,V=2.5,T=45.0,A=100.0");
+		//sprintf(buf, "GPSD,P=48.5 135.1,V=2.5,T=45.0,A=100.0");
 
 		n = sscanf(buf, "GPSD,P=%lf %lf,V=%lf,T=%lf,A=%lf",
 			&gps_pt.lat, &gps_pt.lon,
@@ -804,42 +837,52 @@ void MainFrame::OnGpsAnchorClick(wxCommandEvent& event)
 void MainFrame::OnWiFiAnchorClick(wxCommandEvent& event)
 {
 	Anchor_ = WiFiAnchor;
+
+	cartographer::coord wifi_max_power_pt;
+	{
+		unique_lock<mutex> lock(WiFi_mutex_);
+		wifi_max_power_pt = WiFi_max_power_pt_;
+	}
+	Cartographer->MoveTo(wifi_max_power_pt, cartographer::ratio(0.5, 0.5));
+
 	UpdateButtons();
 }
 
 void MainFrame::UpdateButtons()
 {
+	int anchor = Anchor_;
+
 	/* GpsTracker */
 	bool gps_enabled = worked(GpsTracker_worker_);
 	ToolBar1->ToggleTool(ID_GPSTRACKER, gps_enabled);
 	ToolBar1->EnableTool(ID_GPSANCHOR, gps_enabled);
+	ToolBar1->ToggleTool(ID_GPSANCHOR, gps_enabled && anchor == GpsAnchor);
 
 	/* WiFiScan */
 	bool wifi_enabled = worked(WiFiScan_worker_);
 	ToolBar1->ToggleTool(ID_WIFISCAN, wifi_enabled);
 	ToolBar1->EnableTool(ID_WIFIANCHOR, wifi_enabled);
+	ToolBar1->ToggleTool(ID_WIFIANCHOR, wifi_enabled && anchor == WiFiAnchor);
+}
 
-	/* Кнопки слежения */
-	switch (Anchor_)
+void MainFrame::OnSettingsClick(wxCommandEvent& event)
+{
+	SettingsDialog::Open(this);
+	ReloadSettings();
+
+	/*-
+	ppp = true;
+	Cartographer->Repaint();
+	boost::this_thread::sleep( posix_time::milliseconds(5000) );
+	-*/
+}
+
+void MainFrame::ReloadSettings()
+{
 	{
-		case GpsAnchor:
-			ToolBar1->ToggleTool(ID_WIFIANCHOR, false);
-
-			if (!gps_enabled)
-				Anchor_ = NoAnchor;
-			else
-				ToolBar1->ToggleTool(ID_GPSANCHOR, true);
-
-			break;
-
-		case WiFiAnchor:
-			ToolBar1->ToggleTool(ID_GPSANCHOR, false);
-
-			if (!wifi_enabled)
-				Anchor_ = NoAnchor;
-			else
-				ToolBar1->ToggleTool(ID_WIFIANCHOR, true);
-
-			break;
+		unique_lock<mutex> lock(WiFi_mutex_);
+		WiFi_relative_mode_ = MyConfig->ReadBool(L"/Colors/RelativeMode", true);
+		WiFi_min_power_abs_ = MyConfig->ReadLong(L"/Colors/MinPower", -100);
+		WiFi_max_power_abs_ = MyConfig->ReadLong(L"/Colors/MaxPower", 10);
 	}
 }

@@ -69,6 +69,8 @@
 		</Linker>
 		<Unit filename="MainFrame.cpp" />
 		<Unit filename="MainFrame.h" />
+		<Unit filename="SettingsDialog.cpp" />
+		<Unit filename="SettingsDialog.h" />
 		<Unit filename="cartographer/Base.cpp" />
 		<Unit filename="cartographer/Base.h" />
 		<Unit filename="cartographer/Painter.cpp" />
@@ -95,6 +97,7 @@
 			<Option compiler="gcc" use="1" buildCommand="$compiler -x c++ $options $includes -c $file -o $object" />
 		</Unit>
 		<Unit filename="wxsmith/MainFrame.wxs" />
+		<Unit filename="wxsmith/SettingsDialog.wxs" />
 		<Extensions>
 			<code_completion />
 			<envvars />
@@ -103,6 +106,7 @@
 				<gui name="wxWidgets" src="scan_analiticsApp.cpp" main="MainFrame" init_handlers="necessary" language="CPP" />
 				<resources>
 					<wxFrame wxs="wxsmith/MainFrame.wxs" src="MainFrame.cpp" hdr="MainFrame.h" name="MainFrame" language="CPP" />
+					<wxDialog wxs="wxsmith/SettingsDialog.wxs" src="SettingsDialog.cpp" hdr="SettingsDialog.h" fwddecl="1" name="SettingsDialog" language="CPP" />
 				</resources>
 			</wxsmith>
 		</Extensions>

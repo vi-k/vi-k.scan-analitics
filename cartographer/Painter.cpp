@@ -41,14 +41,15 @@ void Painter::SetPainter(on_paint_proc_t on_paint_proc)
 	on_paint_handler_ = on_paint_proc;
 }
 
-void Painter::Update()
-{
-	update();
-}
-
 void Painter::Stop()
 {
 	stop();
+}
+
+void Painter::Repaint()
+{
+	if (boost::this_thread::get_id() == paint_thread_id_)
+		repaint();
 }
 
 void Painter::SetStatusHandler(on_status_proc_t on_status_proc)

@@ -32,6 +32,8 @@ class MainFrame: my::employer, public wxFrame
 		MainFrame(wxWindow* parent,wxWindowID id = -1);
 		virtual ~MainFrame();
 
+		void ReloadSettings();
+
 	private:
 		cartographer::Painter *Cartographer;
 
@@ -43,7 +45,10 @@ class MainFrame: my::employer, public wxFrame
         int WiFi_sock_;
         unsigned char WiFi_mac_[6];
 		PGresult *WiFi_data_;
+		bool WiFi_relative_mode_;
         int WiFi_min_power_, WiFi_max_power_;
+        int WiFi_min_power_abs_, WiFi_max_power_abs_;
+        cartographer::coord WiFi_max_power_pt_;
         //cartographer::coord min_pt_, max_pt_;
 		mutex WiFi_mutex_;
 
@@ -98,6 +103,7 @@ class MainFrame: my::employer, public wxFrame
 		void OnGpsAnchorClick(wxCommandEvent& event);
 		void OnGpsTrackerClick(wxCommandEvent& event);
 		void OnWiFiAnchorClick(wxCommandEvent& event);
+		void OnSettingsClick(wxCommandEvent& event);
 		//*)
 
 		void OnIdle(wxIdleEvent& event);
@@ -106,7 +112,10 @@ class MainFrame: my::employer, public wxFrame
 		static const long ID_COMBOBOX1;
 		static const long ID_PANEL2;
 		static const long ID_PANEL1;
+		static const long ID_MENUITEM3;
 		static const long ID_MENU_QUIT;
+		static const long ID_MENUITEM2;
+		static const long ID_MENUITEM1;
 		static const long ID_MENU_ABOUT;
 		static const long ID_STATUSBAR1;
 		static const long ID_ZOOMIN;
@@ -122,6 +131,10 @@ class MainFrame: my::employer, public wxFrame
 		wxToolBarToolBase* ToolBarItem4;
 		wxToolBar* ToolBar1;
 		wxToolBarToolBase* ToolBarItem3;
+		wxMenuItem* MenuItem5;
+		wxMenu* Menu3;
+		wxMenu* MenuItem3;
+		wxMenuItem* MenuItem4;
 		wxPanel* Panel1;
 		wxToolBarToolBase* ToolBarItem6;
 		wxToolBarToolBase* ToolBarItem1;
