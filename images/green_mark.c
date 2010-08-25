@@ -1,11 +1,11 @@
 /* GIMP RGBA C-Source image dump (green_mark16.c) */
 
-static const struct green_mark16_st {
+static const struct green_mark_st {
   unsigned int 	 width;
   unsigned int 	 height;
   unsigned int 	 bytes_per_pixel; /* 3:RGB, 4:RGBA */ 
   unsigned char	 pixel_data[16 * 16 * 4 + 1];
-} green_mark16 = {
+} green_mark = {
   16, 16, 4,
   "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\1\0\0\0\1\0\0\0\1"
   "\0\0\0\1\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"

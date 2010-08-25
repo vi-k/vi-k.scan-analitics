@@ -18,19 +18,27 @@ extern wxFileConfig *MyConfig;
 #include <sstream>
 
 //(*InternalHeaders(MainFrame)
-#include <wx/bitmap.h>
 #include <wx/settings.h>
 #include <wx/intl.h>
-#include <wx/image.h>
 #include <wx/string.h>
 //*)
 
-#include "images/gps_tracker.c"
-#include "images/green_mark16.c"
-#include "images/red_mark16.c"
-#include "images/yellow_mark16.c"
+/* Загрузка картинок */
+namespace images
+{
+	#include "images/cartographer.c"
+	#include "images/zoom_in.c"
+	#include "images/zoom_out.c"
+	#include "images/gps_tracker.c"
+	#include "images/wifi.c"
+	#include "images/anchor.c"
+	#include "images/green_mark.c"
+	#include "images/red_mark.c"
+	#include "images/yellow_mark.c"
+}
 
-//#include <wx/filename.h>
+
+wxDEFINE_EVENT(MY_MESSAGEBOX, myMessageBoxEvent);
 
 //(*IdInit(MainFrame)
 const long MainFrame::ID_COMBOBOX1 = wxNewId();
@@ -40,28 +48,84 @@ const long MainFrame::ID_MENUITEM3 = wxNewId();
 const long MainFrame::ID_MENU_QUIT = wxNewId();
 const long MainFrame::ID_MENUITEM2 = wxNewId();
 const long MainFrame::ID_MENUITEM1 = wxNewId();
-const long MainFrame::ID_MENU_ABOUT = wxNewId();
-const long MainFrame::ID_STATUSBAR1 = wxNewId();
 const long MainFrame::ID_ZOOMIN = wxNewId();
 const long MainFrame::ID_ZOOMOUT = wxNewId();
 const long MainFrame::ID_GPSTRACKER = wxNewId();
 const long MainFrame::ID_GPSANCHOR = wxNewId();
 const long MainFrame::ID_WIFISCAN = wxNewId();
 const long MainFrame::ID_WIFIANCHOR = wxNewId();
-const long MainFrame::ID_TOOLBAR1 = wxNewId();
+const long MainFrame::ID_MENU_ABOUT = wxNewId();
+const long MainFrame::ID_STATUSBAR1 = wxNewId();
 //*)
 
 BEGIN_EVENT_TABLE(MainFrame,wxFrame)
+	MY_EVT(MY_MESSAGEBOX, MainFrame::OnMyMessageBox)
 	EVT_IDLE(MainFrame::OnIdle)
 	//(*EventTable(MainFrame)
 	//*)
 END_EVENT_TABLE()
 
+wxImage LoadImageFromRaw(const unsigned char *data,
+	int width, int height, bool with_alpha)
+{
+	wxImage image(width, height);
+
+	if (with_alpha)
+		image.InitAlpha();
+
+	unsigned char *dest_rgb = image.GetData();
+	unsigned char *dest_a = image.GetAlpha();
+
+	const unsigned char *end = data
+		+ width * height * (with_alpha ? 4 : 3);
+
+	if (with_alpha)
+	{
+		while (data != end)
+		{
+			*dest_rgb++ = *data++;
+			*dest_rgb++ = *data++;
+			*dest_rgb++ = *data++;
+			*dest_a++   = *data++;
+		}
+	}
+	else
+	{
+		while (data != end)
+		{
+			*dest_rgb++ = *data++;
+			*dest_rgb++ = *data++;
+			*dest_rgb++ = *data++;
+		}
+	}
+
+	return image;
+}
+
+template<class C_ImageStruct>
+wxImage LoadImageFromC(const C_ImageStruct &st)
+{
+	return LoadImageFromRaw(st.pixel_data,
+		st.width, st.height, st.bytes_per_pixel == 4);
+}
+
+wxBitmap LoadBitmapFromRaw(const unsigned char *data,
+	int width, int height, bool with_alpha)
+{
+	return wxBitmap( LoadImageFromRaw(data, width, height, with_alpha) );
+}
+
+template<class C_ImageStruct>
+wxBitmap LoadBitmapFromC(const C_ImageStruct &st)
+{
+	return LoadBitmapFromRaw(st.pixel_data,
+		st.width, st.height, st.bytes_per_pixel == 4);
+}
+
 MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
 	: my::employer("MainFrame_employer")
 	, Cartographer(0)
 	, Anchor_(NoAnchor)
-	, WiFi_sock_(0)
 	, WiFi_data_(NULL)
 	, WiFi_relative_mode_(true)
 	, WiFi_min_power_(-100)
@@ -81,6 +145,7 @@ MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
 	, Gps_azimuth_(0.0)
 	, Gps_altitude_(0.0)
 	, Gps_ok_(false)
+	, Gps_test_(false)
 	, MY_MUTEX_DEF(Gps_mutex_,true)
 {
 	MY_REGISTER_THREAD("Main");
@@ -92,7 +157,7 @@ MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
 	wxMenuItem* MenuItem2;
 	wxMenuItem* MenuItem1;
 	wxMenu* Menu1;
-	wxMenuBar* MenuBar1;
+	wxMenuBar* MainMenu;
 	wxMenu* Menu2;
 
 	Create(parent, wxID_ANY, _("Scan Analitics"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_FRAME_STYLE, _T("wxID_ANY"));
@@ -107,63 +172,79 @@ MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
 	Panel1 = new wxPanel(this, ID_PANEL1, wxDefaultPosition, wxSize(616,331), wxTAB_TRAVERSAL, _T("ID_PANEL1"));
 	FlexGridSizer1->Add(Panel1, 1, wxALL|wxEXPAND|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 5);
 	SetSizer(FlexGridSizer1);
-	MenuBar1 = new wxMenuBar();
+	MainMenu = new wxMenuBar();
 	Menu1 = new wxMenu();
 	MenuItem5 = new wxMenuItem(Menu1, ID_MENUITEM3, _("Настройки..."), wxEmptyString, wxITEM_NORMAL);
 	Menu1->Append(MenuItem5);
 	Menu1->AppendSeparator();
 	MenuItem1 = new wxMenuItem(Menu1, ID_MENU_QUIT, _("Выход\tAlt-F4"), wxEmptyString, wxITEM_NORMAL);
 	Menu1->Append(MenuItem1);
-	MenuBar1->Append(Menu1, _("Файл"));
+	MainMenu->Append(Menu1, _("Файл"));
 	Menu3 = new wxMenu();
 	MenuItem3 = new wxMenu();
 	MenuItem4 = new wxMenuItem(MenuItem3, ID_MENUITEM2, _("Карта"), wxEmptyString, wxITEM_NORMAL);
 	MenuItem3->Append(MenuItem4);
 	Menu3->Append(ID_MENUITEM1, _("Карты"), MenuItem3, wxEmptyString);
-	MenuBar1->Append(Menu3, _("Вид"));
+	Menu3->AppendSeparator();
+	Menu4 = new wxMenuItem(Menu3, ID_ZOOMIN, _("Увеличить масштаб"), wxEmptyString, wxITEM_NORMAL);
+	Menu3->Append(Menu4);
+	Menu5 = new wxMenuItem(Menu3, ID_ZOOMOUT, _("Уменьшить масштаб"), wxEmptyString, wxITEM_NORMAL);
+	Menu3->Append(Menu5);
+	Menu3->AppendSeparator();
+	MenuItem6 = new wxMenuItem(Menu3, ID_GPSTRACKER, _("Загружать данные с Gps"), wxEmptyString, wxITEM_CHECK);
+	Menu3->Append(MenuItem6);
+	MenuItem7 = new wxMenuItem(Menu3, ID_GPSANCHOR, _("Следить за Gps"), wxEmptyString, wxITEM_CHECK);
+	Menu3->Append(MenuItem7);
+	Menu3->AppendSeparator();
+	MenuItem8 = new wxMenuItem(Menu3, ID_WIFISCAN, _("Загружать данные с WiFi-сканера"), wxEmptyString, wxITEM_CHECK);
+	Menu3->Append(MenuItem8);
+	MenuItem9 = new wxMenuItem(Menu3, ID_WIFIANCHOR, _("Следить за данными WiFi-сканера"), wxEmptyString, wxITEM_CHECK);
+	Menu3->Append(MenuItem9);
+	MainMenu->Append(Menu3, _("Вид"));
 	Menu2 = new wxMenu();
 	MenuItem2 = new wxMenuItem(Menu2, ID_MENU_ABOUT, _("О программе...\tF1"), wxEmptyString, wxITEM_NORMAL);
 	Menu2->Append(MenuItem2);
-	MenuBar1->Append(Menu2, _("Помощь"));
-	SetMenuBar(MenuBar1);
+	MainMenu->Append(Menu2, _("Помощь"));
+	SetMenuBar(MainMenu);
 	StatusBar1 = new wxStatusBar(this, ID_STATUSBAR1, 0, _T("ID_STATUSBAR1"));
 	int __wxStatusBarWidths_1[1] = { -1 };
 	int __wxStatusBarStyles_1[1] = { wxSB_NORMAL };
 	StatusBar1->SetFieldsCount(1,__wxStatusBarWidths_1);
 	StatusBar1->SetStatusStyles(1,__wxStatusBarStyles_1);
 	SetStatusBar(StatusBar1);
-	ToolBar1 = new wxToolBar(this, ID_TOOLBAR1, wxDefaultPosition, wxDefaultSize, wxTB_HORIZONTAL|wxNO_BORDER, _T("ID_TOOLBAR1"));
-	ToolBarItem1 = ToolBar1->AddTool(ID_ZOOMIN, _("ZoomIn"), wxBitmap(wxImage(_T("images/zoom-in-32.png"))), wxNullBitmap, wxITEM_NORMAL, _("Увеличить"), wxEmptyString);
-	ToolBarItem2 = ToolBar1->AddTool(ID_ZOOMOUT, _("ZoomOut"), wxBitmap(wxImage(_T("images/zoom-out-32.png"))), wxNullBitmap, wxITEM_NORMAL, _("Уменьшить"), wxEmptyString);
-	ToolBar1->AddSeparator();
-	ToolBarItem3 = ToolBar1->AddTool(ID_GPSTRACKER, _("GpsTracker"), wxBitmap(wxImage(_T("images/gps_tracker.png"))), wxNullBitmap, wxITEM_CHECK, _("Gps"), wxEmptyString);
-	ToolBarItem4 = ToolBar1->AddTool(ID_GPSANCHOR, _("GpsAnchor"), wxBitmap(wxImage(_T("images/knotes.png"))), wxNullBitmap, wxITEM_CHECK, _("Следить за Gps"), wxEmptyString);
-	ToolBar1->AddSeparator();
-	ToolBarItem5 = ToolBar1->AddTool(ID_WIFISCAN, _("WiFiScan"), wxBitmap(wxImage(_T("images/wifi.png"))), wxNullBitmap, wxITEM_CHECK, _("WiFi"), wxEmptyString);
-	ToolBarItem6 = ToolBar1->AddTool(ID_WIFIANCHOR, _("WiFiAnchor"), wxBitmap(wxImage(_T("images/knotes.png"))), wxNullBitmap, wxITEM_CHECK, _("Следить за WiFi"), wxEmptyString);
-	ToolBar1->Realize();
-	SetToolBar(ToolBar1);
 	FlexGridSizer1->SetSizeHints(this);
 
 	Connect(ID_COMBOBOX1,wxEVT_COMMAND_COMBOBOX_SELECTED,(wxObjectEventFunction)&MainFrame::OnComboBox1Select);
-	Connect(ID_MENUITEM3,wxEVT_COMMAND_MENU_SELECTED,(wxObjectEventFunction)&MainFrame::OnSettingsClick);
+	Connect(ID_MENUITEM3,wxEVT_COMMAND_MENU_SELECTED,(wxObjectEventFunction)&MainFrame::OnSettings);
 	Connect(ID_MENU_QUIT,wxEVT_COMMAND_MENU_SELECTED,(wxObjectEventFunction)&MainFrame::OnQuit);
+	Connect(ID_ZOOMIN,wxEVT_COMMAND_MENU_SELECTED,(wxObjectEventFunction)&MainFrame::OnZoomIn);
+	Connect(ID_ZOOMOUT,wxEVT_COMMAND_MENU_SELECTED,(wxObjectEventFunction)&MainFrame::OnZoomOut);
+	Connect(ID_GPSTRACKER,wxEVT_COMMAND_MENU_SELECTED,(wxObjectEventFunction)&MainFrame::OnGpsTracker);
+	Connect(ID_GPSANCHOR,wxEVT_COMMAND_MENU_SELECTED,(wxObjectEventFunction)&MainFrame::OnGpsAnchor);
+	Connect(ID_WIFISCAN,wxEVT_COMMAND_MENU_SELECTED,(wxObjectEventFunction)&MainFrame::OnWiFiScan);
+	Connect(ID_WIFIANCHOR,wxEVT_COMMAND_MENU_SELECTED,(wxObjectEventFunction)&MainFrame::OnWiFiAnchor);
 	Connect(ID_MENU_ABOUT,wxEVT_COMMAND_MENU_SELECTED,(wxObjectEventFunction)&MainFrame::OnAbout);
-	Connect(ID_ZOOMIN,wxEVT_COMMAND_TOOL_CLICKED,(wxObjectEventFunction)&MainFrame::OnZoomInButtonClick);
-	Connect(ID_ZOOMOUT,wxEVT_COMMAND_TOOL_CLICKED,(wxObjectEventFunction)&MainFrame::OnZoomOutButtonClick);
-	Connect(ID_GPSTRACKER,wxEVT_COMMAND_TOOL_CLICKED,(wxObjectEventFunction)&MainFrame::OnGpsTrackerClick);
-	Connect(ID_GPSANCHOR,wxEVT_COMMAND_TOOL_CLICKED,(wxObjectEventFunction)&MainFrame::OnGpsAnchorClick);
-	Connect(ID_WIFISCAN,wxEVT_COMMAND_TOOL_CLICKED,(wxObjectEventFunction)&MainFrame::OnWiFiScanButtonClicked);
-	Connect(ID_WIFIANCHOR,wxEVT_COMMAND_TOOL_CLICKED,(wxObjectEventFunction)&MainFrame::OnWiFiAnchorClick);
 	//*)
 
 	setlocale(LC_NUMERIC, "C");
 
 	{
 		wxIcon FrameIcon;
-		FrameIcon.CopyFromBitmap(wxBitmap(wxImage(_T("images/cartographer.png"))));
+		FrameIcon.CopyFromBitmap(LoadBitmapFromC(images::cartographer));
 		SetIcon(FrameIcon);
 	}
+
+	MainToolBar = new wxToolBar(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxTB_HORIZONTAL|wxNO_BORDER);
+	MainToolBar->AddTool(ID_ZOOMIN, L"ZoomIn", LoadBitmapFromC(images::zoom_in), L"Увеличить");
+	MainToolBar->AddTool(ID_ZOOMOUT, L"ZoomOut", LoadBitmapFromC(images::zoom_out), L"Уменьшить");
+	MainToolBar->AddSeparator();
+	MainToolBar->AddTool(ID_GPSTRACKER, L"GpsTracker", LoadBitmapFromC(images::gps_tracker), L"Gps", wxITEM_CHECK);
+	MainToolBar->AddTool(ID_GPSANCHOR, L"GpsAnchor", LoadBitmapFromC(images::anchor), L"Следить за Gps", wxITEM_CHECK);
+	MainToolBar->AddSeparator();
+	MainToolBar->AddTool(ID_WIFISCAN, L"WiFiScan", LoadBitmapFromC(images::wifi), L"WiFi", wxITEM_CHECK);
+	MainToolBar->AddTool(ID_WIFIANCHOR, L"WiFiAnchor", LoadBitmapFromC(images::anchor), L"Следить за WiFi", wxITEM_CHECK);
+	MainToolBar->Realize();
+	SetToolBar(MainToolBar);
 
 	ReloadSettings();
 
@@ -255,12 +336,12 @@ MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
 	ComboBox1->SetValue(map.name);
 
 	/* Изображения */
-	gps_tracker_id_ = Cartographer->LoadImageFromC(gps_tracker);
+	gps_tracker_id_ = Cartographer->LoadImageFromC(images::gps_tracker);
 	Cartographer->SetImageCentralPoint(gps_tracker_id_, 15.5, 19.0);
 
-	green_mark16_id_ = Cartographer->LoadImageFromC(green_mark16);
-	red_mark16_id_ = Cartographer->LoadImageFromC(red_mark16);
-	yellow_mark16_id_ = Cartographer->LoadImageFromC(yellow_mark16);
+	green_mark16_id_ = Cartographer->LoadImageFromC(images::green_mark);
+	red_mark16_id_ = Cartographer->LoadImageFromC(images::red_mark);
+	yellow_mark16_id_ = Cartographer->LoadImageFromC(images::yellow_mark);
 
 
 	/* Запускаем собственную прорисовку */
@@ -273,21 +354,10 @@ MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
 	Cartographer->MoveTo(13,
 		cartographer::DMSToDD( 48,28,48.77, 135,4,19.04 ));
 
-	memset(WiFi_mac_, 0, sizeof(WiFi_mac_));
+	UpdateWiFiData( macaddr(0, 0x10, 0xE7, 0xA4, 0x46, 0x9D) );
 	WiFiScan_worker_ = new_worker( L"WiFiScan_worker");
 
 	GpsTracker_worker_ = new_worker( L"GpsTracker_worker");
-
-	/*
-	WiFi_mac_[0] = 0;
-	WiFi_mac_[1] = 0x10;
-	WiFi_mac_[2] = 0xE7;
-	WiFi_mac_[3] = 0xA4;
-	WiFi_mac_[4] = 0x46;
-	WiFi_mac_[5] = 0x9D;
-	-*/
-
-	UpdateWiFiData();
 
 	//int a = PQisthreadsafe();
 
@@ -303,9 +373,6 @@ MainFrame::~MainFrame()
 
 
 	lets_finish();
-
-	if (WiFi_sock_)
-		close(WiFi_sock_);
 
 	dismiss(WiFiScan_worker_);
 	dismiss(GpsTracker_worker_);
@@ -376,7 +443,10 @@ void MainFrame::OnQuit(wxCommandEvent& event)
 
 void MainFrame::OnAbout(wxCommandEvent& event)
 {
-	wxMessageBox( L"About...");
+	//wxMessageBox( L"About...");
+
+	int ret = myMessageBox(L"Test", L"Title", wxOK | wxICON_ERROR, this);
+	ret = ret - ret;
 }
 
 void MainFrame::OnComboBox1Select(wxCommandEvent& event)
@@ -537,187 +607,14 @@ void MainFrame::StatusHandler(std::wstring &str)
 	}
 }
 
-void MainFrame::OnZoomInButtonClick(wxCommandEvent& event)
-{
-	Cartographer->ZoomIn();
-}
-
-void MainFrame::OnZoomOutButtonClick(wxCommandEvent& event)
-{
-	Cartographer->ZoomOut();
-}
-
-void MainFrame::OnWiFiScanButtonClicked(wxCommandEvent& event)
-{
-	unique_lock<mutex> lock(WiFi_mutex_);
-
-	if (WiFiScan_worker_.use_count() != 2)
-	{
-		close(WiFi_sock_);
-		ToolBar1->ToggleTool(ID_WIFISCAN, false);
-	}
-	else
-	{
-		struct sockaddr_un remote;
-
-		if ((WiFi_sock_ = socket(AF_UNIX, SOCK_STREAM, 0)) == -1)
-		{
-			WiFi_sock_ = 0;
-			lock.unlock();
-
-			wxMessageBox(L"Error in socket()", L"Error", wxOK | wxICON_ERROR);
-			ToolBar1->ToggleTool(ID_WIFISCAN, false);
-			return;
-		}
-
-		remote.sun_family = AF_UNIX;
-		strcpy(remote.sun_path, "/tmp/wifiscan.sock");
-		size_t len = strlen(remote.sun_path) + sizeof(remote.sun_family);
-
-		if (connect(WiFi_sock_, (struct sockaddr *)&remote, len) == -1)
-		{
-			close(WiFi_sock_);
-			WiFi_sock_ = 0;
-			lock.unlock();
-
-			wxMessageBox(L"Error in connect()", L"Error", wxOK | wxICON_ERROR);
-			ToolBar1->ToggleTool(ID_WIFISCAN, false);
-			return;
-		}
-
-		boost::thread( boost::bind(
-			&MainFrame::WiFiScanProc, this, WiFiScan_worker_) );
-	}
-}
-
-void MainFrame::WiFiScanProc(my::worker::ptr this_worker)
-{
-	MY_REGISTER_THREAD("WiFiScan");
-
-	while (!finish())
-	{
-		unsigned char buf[100];
-
-		int sz = recv(WiFi_sock_, buf, 6, 0);
-
-		if (sz == -1)
-			break;
-
-		if (sz != 6)
-			continue;
-
-		{
-			unique_lock<mutex> l(WiFi_mutex_);
-			memcpy(WiFi_mac_, buf, 6);
-		}
-
-		UpdateWiFiData();
-	}
-
-	close(WiFi_sock_);
-	WiFi_sock_ = 0;
-}
-
-void MainFrame::UpdateWiFiData()
-{
-	if (!PgConnect())
-		return;
-
-	wchar_t title[100] = { L"Scan Analitics" };
-
-	unsigned char wifi_mac[6];
-
-	{
-		unique_lock<mutex> lock(WiFi_mutex_);
-
-		if (WiFi_data_)
-		{
-			PQclear(WiFi_data_);
-			WiFi_data_ = NULL;
-		}
-
-		memcpy(wifi_mac, WiFi_mac_, 6);
-	}
-
-	if (memcmp(wifi_mac, "\0\0\0\0\0\0", 6) != 0)
-	{
-		unique_lock<mutex> l(pg_mutex_);
-
-		swprintf( title, sizeof(title) / sizeof(*title),
-			L"Scan Analitics (%02X:%02X:%02X:%02X:%02X:%02X)",
-			wifi_mac[0], wifi_mac[1], wifi_mac[2],
-			wifi_mac[3], wifi_mac[4], wifi_mac[5] );
-
-		char buf[200];
-		snprintf( buf, sizeof(buf) / sizeof(*buf),
-			"SELECT * FROM wifi_scan_data"
-			" WHERE station_mac=\'%02X:%02X:%02X:%02X:%02X:%02X\'"
-			" ORDER BY scan_power",
-			wifi_mac[0], wifi_mac[1], wifi_mac[2],
-			wifi_mac[3], wifi_mac[4], wifi_mac[5] );
-
-		PGresult *wifi_data = PQexec(pg_conn_, buf);
-
-		if (PQresultStatus(wifi_data) != PGRES_TUPLES_OK)
-		{
-			fprintf(stderr, "Command failed: %s", PQerrorMessage(pg_conn_));
-			PQclear(wifi_data);
-		}
-		else
-		{
-			int count = PQntuples(wifi_data);
-
-			int wifi_min_power = 0;
-			int wifi_max_power = 0;
-			cartographer::coord wifi_max_power_pt;
-
-			for (int i = 0; i < count; i++)
-			{
-				char *power_s = PQgetvalue(wifi_data, i, 3);
-				char *lat_s = PQgetvalue(wifi_data, i, 5);
-				char *lon_s = PQgetvalue(wifi_data, i, 6);
-
-				int power;
-				cartographer::coord pt;
-
-				sscanf(power_s, "%d", &power);
-				sscanf(lat_s, "%lf", &pt.lat);
-				sscanf(lon_s, "%lf", &pt.lon);
-
-				if (i == 0 || power < wifi_min_power)
-					wifi_min_power = power;
-
-				if (i == 0 || power > wifi_max_power)
-					wifi_max_power = power;
-
-				if (Anchor_ == WiFiAnchor && i == count - 1)
-				{
-					wifi_max_power_pt = pt;
-					Cartographer->MoveTo(pt, cartographer::ratio(0.5, 0.5));
-				}
-			}
-
-			{
-				unique_lock<mutex> lock(WiFi_mutex_);
-				WiFi_data_ = wifi_data;
-				WiFi_min_power_ = wifi_min_power;
-				WiFi_max_power_ = wifi_max_power;
-				WiFi_max_power_pt_ = wifi_max_power_pt;
-			}
-		}
-	}
-
-	SetTitle(title);
-}
-
 void MainFrame::CheckerProc(my::worker::ptr this_worker)
 {
 	MY_REGISTER_THREAD("Checker");
 
 	while (!finish())
 	{
-		boost::this_thread::sleep( posix_time::milliseconds(1000) );
 		debug_log << L"CheckerProc()" << debug_log;
+		timed_sleep( this_worker, posix_time::milliseconds(1000) );
 	}
 }
 
@@ -732,24 +629,75 @@ void MainFrame::OnIdle(wxIdleEvent& event)
 	}
 }
 
-void MainFrame::OnGpsTrackerClick(wxCommandEvent& event)
+void MainFrame::UpdateButtons()
+{
+	int anchor = Anchor_;
+
+	/* GpsTracker */
+	bool gps_enabled = worked(GpsTracker_worker_);
+	MainToolBar->ToggleTool(ID_GPSTRACKER, gps_enabled);
+	MainToolBar->EnableTool(ID_GPSANCHOR, gps_enabled);
+	MainToolBar->ToggleTool(ID_GPSANCHOR, gps_enabled && anchor == GpsAnchor);
+
+	/* WiFiScan */
+	bool wifi_enabled = worked(WiFiScan_worker_);
+	MainToolBar->ToggleTool(ID_WIFISCAN, wifi_enabled);
+	MainToolBar->EnableTool(ID_WIFIANCHOR, wifi_enabled);
+	MainToolBar->ToggleTool(ID_WIFIANCHOR, wifi_enabled && anchor == WiFiAnchor);
+}
+
+void MainFrame::OnSettings(wxCommandEvent& event)
+{
+	SettingsDialog::Open(this);
+	ReloadSettings();
+}
+
+void MainFrame::ReloadSettings()
+{
+	{
+		unique_lock<mutex> lock(WiFi_mutex_);
+		WiFi_relative_mode_ = MyConfig->ReadBool(L"/Colors/RelativeMode", true);
+		WiFi_min_power_abs_ = MyConfig->ReadLong(L"/Colors/MinPower", -100);
+		WiFi_max_power_abs_ = MyConfig->ReadLong(L"/Colors/MaxPower", 10);
+	}
+
+	Gps_test_ = MyConfig->ReadBool(L"/Cartographer/GpsTest", false);
+}
+
+void MainFrame::OnZoomIn(wxCommandEvent& event)
+{
+	Cartographer->ZoomIn();
+}
+
+void MainFrame::OnZoomOut(wxCommandEvent& event)
+{
+	Cartographer->ZoomOut();
+}
+
+void MainFrame::OnGpsTracker(wxCommandEvent& event)
 {
 	unique_lock<mutex> lock(Gps_mutex_);
 
 	if ( worked(GpsTracker_worker_) )
 	{
 		lets_finish(GpsTracker_worker_);
-		ToolBar1->ToggleTool(ID_GPSTRACKER, false);
 	}
 	else
 	{
-		lets_finish(GpsTracker_worker_, false);
-
+		cancel_finish(GpsTracker_worker_);
 		boost::thread( boost::bind(
 			&MainFrame::GpsTrackerProc, this, GpsTracker_worker_) );
-
-		ToolBar1->ToggleTool(ID_GPSTRACKER, true);
 	}
+}
+
+void MainFrame::OnGpsAnchor(wxCommandEvent& event)
+{
+	if (Anchor_ == GpsAnchor)
+		Anchor_ = NoAnchor;
+	else
+		Anchor_ = GpsAnchor;
+
+	UpdateButtons();
 }
 
 void MainFrame::GpsTrackerProc(my::worker::ptr this_worker)
@@ -777,8 +725,6 @@ void MainFrame::GpsTrackerProc(my::worker::ptr this_worker)
 
 	while ( !finish(this_worker) )
 	{
-		boost::this_thread::sleep( posix_time::milliseconds(1000) );
-
 		debug_log << L"GpsTrackerProc()" << debug_log;
 
 		int n = snprintf(buf, sizeof(buf) / sizeof(*buf), "pvta\r\n");
@@ -797,7 +743,8 @@ void MainFrame::GpsTrackerProc(my::worker::ptr this_worker)
 		double gps_altitude;
 		bool gps_ok;
 
-		//sprintf(buf, "GPSD,P=48.5 135.1,V=2.5,T=45.0,A=100.0");
+		if (Gps_test_)
+			sprintf(buf, "GPSD,P=48.5 135.1,V=2.5,T=45.0,A=100.0");
 
 		n = sscanf(buf, "GPSD,P=%lf %lf,V=%lf,T=%lf,A=%lf",
 			&gps_pt.lat, &gps_pt.lon,
@@ -823,66 +770,227 @@ void MainFrame::GpsTrackerProc(my::worker::ptr this_worker)
 
 		if (gps_ok && Anchor_ == GpsAnchor)
 			Cartographer->MoveTo(gps_pt, cartographer::ratio(0.5, 0.5));
+
+		timed_sleep( this_worker, posix_time::milliseconds(1000) );
 	}
 
 	close(gpsd_sock);
 }
 
-void MainFrame::OnGpsAnchorClick(wxCommandEvent& event)
+void MainFrame::OnWiFiScan(wxCommandEvent& event)
 {
-	Anchor_ = GpsAnchor;
+	unique_lock<mutex> lock(WiFi_mutex_);
+
+	if ( worked(WiFiScan_worker_) )
+	{
+		lets_finish(WiFiScan_worker_);
+	}
+	else
+	{
+		cancel_finish(WiFiScan_worker_);
+		boost::thread( boost::bind(
+			&MainFrame::WiFiScanProc, this, WiFiScan_worker_) );
+	}
+}
+
+void MainFrame::OnWiFiAnchor(wxCommandEvent& event)
+{
+	if (Anchor_ == WiFiAnchor)
+		Anchor_ = NoAnchor;
+	else
+	{
+		Anchor_ = WiFiAnchor;
+
+		cartographer::coord wifi_max_power_pt;
+		bool wifi_ok;
+
+		{
+			unique_lock<mutex> lock(WiFi_mutex_);
+			wifi_ok = WiFi_ok_;
+			wifi_max_power_pt = WiFi_max_power_pt_;
+		}
+
+		if (wifi_ok)
+			Cartographer->MoveTo(wifi_max_power_pt,
+				cartographer::ratio(0.5, 0.5));
+	}
+
 	UpdateButtons();
 }
 
-void MainFrame::OnWiFiAnchorClick(wxCommandEvent& event)
+void MainFrame::WiFiScanProc(my::worker::ptr this_worker)
 {
-	Anchor_ = WiFiAnchor;
+	MY_REGISTER_THREAD("WiFiScan");
 
-	cartographer::coord wifi_max_power_pt;
+	int wifi_sock;
+
+	wifi_sock = socket(AF_UNIX, SOCK_STREAM, 0);
+	if (wifi_sock < 0 )
+	{
+		myMessageBox(L"Не удалось создать сокет", L"Ошибка",
+			wxOK | wxICON_ERROR);
+		return;
+	}
+
+	sockaddr_un remote;
+	remote.sun_family = AF_UNIX;
+
+	strcpy(remote.sun_path, "/tmp/wifiscan.sock");
+	size_t len = strlen(remote.sun_path) + sizeof(remote.sun_family);
+
+	if (connect(wifi_sock, (struct sockaddr *)&remote, len) == -1)
+	{
+		close(wifi_sock);
+		int ret = myMessageBox(L"Не удалось соединиться с WiFi-сканером", L"Ошибка",
+			wxOK | wxICON_ERROR);
+		ret = ret;
+		return;
+	}
+
+	while ( !finish(this_worker) )
+	{
+		debug_log << L"WiFiScanProc()" << debug_log;
+
+		macaddr mac;
+
+		int sz = recv(wifi_sock, mac.mac(), 6, 0);
+
+		if (sz == -1)
+			break;
+
+		if (sz != 6)
+			continue;
+
+		UpdateWiFiData(mac);
+	}
+
+	close(wifi_sock);
+}
+
+void MainFrame::UpdateWiFiData(const macaddr &mac)
+{
+	if (!PgConnect())
+		return;
+
+	std::wstring title(L"Scan Analitics");
+
 	{
 		unique_lock<mutex> lock(WiFi_mutex_);
-		wifi_max_power_pt = WiFi_max_power_pt_;
+
+		if (WiFi_data_)
+		{
+			PQclear(WiFi_data_);
+			WiFi_data_ = NULL;
+		}
 	}
-	Cartographer->MoveTo(wifi_max_power_pt, cartographer::ratio(0.5, 0.5));
 
-	UpdateButtons();
-}
-
-void MainFrame::UpdateButtons()
-{
-	int anchor = Anchor_;
-
-	/* GpsTracker */
-	bool gps_enabled = worked(GpsTracker_worker_);
-	ToolBar1->ToggleTool(ID_GPSTRACKER, gps_enabled);
-	ToolBar1->EnableTool(ID_GPSANCHOR, gps_enabled);
-	ToolBar1->ToggleTool(ID_GPSANCHOR, gps_enabled && anchor == GpsAnchor);
-
-	/* WiFiScan */
-	bool wifi_enabled = worked(WiFiScan_worker_);
-	ToolBar1->ToggleTool(ID_WIFISCAN, wifi_enabled);
-	ToolBar1->EnableTool(ID_WIFIANCHOR, wifi_enabled);
-	ToolBar1->ToggleTool(ID_WIFIANCHOR, wifi_enabled && anchor == WiFiAnchor);
-}
-
-void MainFrame::OnSettingsClick(wxCommandEvent& event)
-{
-	SettingsDialog::Open(this);
-	ReloadSettings();
-
-	/*-
-	ppp = true;
-	Cartographer->Repaint();
-	boost::this_thread::sleep( posix_time::milliseconds(5000) );
-	-*/
-}
-
-void MainFrame::ReloadSettings()
-{
+	if ( !mac.empty() )
 	{
-		unique_lock<mutex> lock(WiFi_mutex_);
-		WiFi_relative_mode_ = MyConfig->ReadBool(L"/Colors/RelativeMode", true);
-		WiFi_min_power_abs_ = MyConfig->ReadLong(L"/Colors/MinPower", -100);
-		WiFi_max_power_abs_ = MyConfig->ReadLong(L"/Colors/MaxPower", 10);
+		unique_lock<mutex> lock(pg_mutex_);
+
+		title = L"Scan Analitics (" + mac.to_wstring() + L")";
+
+		std::string query
+			= "SELECT * FROM wifi_scan_data WHERE station_mac=\'"
+				+ mac.to_string() + "\' ORDER BY scan_power";
+
+		PGresult *wifi_data = PQexec(pg_conn_, query.c_str());
+
+		if (PQresultStatus(wifi_data) != PGRES_TUPLES_OK)
+		{
+			fprintf(stderr, "Command failed: %s", PQerrorMessage(pg_conn_));
+			PQclear(wifi_data);
+		}
+		else
+		{
+			int count = PQntuples(wifi_data);
+
+			int wifi_min_power = 0;
+			int wifi_max_power = 0;
+			cartographer::coord wifi_max_power_pt;
+			bool wifi_ok = false;
+
+			for (int i = 0; i < count; i++)
+			{
+				char *power_s = PQgetvalue(wifi_data, i, 3);
+				char *lat_s = PQgetvalue(wifi_data, i, 5);
+				char *lon_s = PQgetvalue(wifi_data, i, 6);
+
+				int power;
+				cartographer::coord pt;
+
+				sscanf(power_s, "%d", &power);
+				sscanf(lat_s, "%lf", &pt.lat);
+				sscanf(lon_s, "%lf", &pt.lon);
+
+				if (i == 0 || power < wifi_min_power)
+					wifi_min_power = power;
+
+				if (i == 0 || power > wifi_max_power)
+					wifi_max_power = power;
+
+				if (i == count - 1)
+				{
+					wifi_ok = true;
+					wifi_max_power_pt = pt;
+				}
+			}
+
+			{
+				unique_lock<mutex> lock(WiFi_mutex_);
+				WiFi_mac_ = mac;
+				WiFi_data_ = wifi_data;
+				WiFi_min_power_ = wifi_min_power;
+				WiFi_max_power_ = wifi_max_power;
+				WiFi_max_power_pt_ = wifi_max_power_pt;
+				WiFi_ok_ = wifi_ok;
+			}
+
+			lock.unlock();
+
+			if (Anchor_ == WiFiAnchor && wifi_ok)
+				Cartographer->MoveTo(wifi_max_power_pt,
+					cartographer::ratio(0.5, 0.5));
+		}
 	}
+
+	SetTitle(title);
+}
+
+int MainFrame::myMessageBox(const wxString &message,
+	const wxString &caption, int style, wxWindow *parent, int x, int y)
+{
+	myMessageBoxEvent *event = new myMessageBoxEvent(
+		MY_MESSAGEBOX, message, caption, style, parent, x, y );
+
+	int ret;
+	event->SetRetPtr(&ret);
+
+	waiter w;
+	event->SetWaiterPtr(&w);
+
+	unique_lock<mutex> lock( w.get_mutex() );
+
+	QueueEvent(event);
+
+	w.sleep(lock);
+
+	return ret;
+}
+
+void MainFrame::myMessageBoxDelayed(const wxString &message,
+	const wxString &caption, int style, wxWindow *parent, int x, int y)
+{
+	myMessageBoxEvent *event = new myMessageBoxEvent(
+		MY_MESSAGEBOX, message, caption, style, parent, x, y );
+
+	QueueEvent(event);
+}
+
+void MainFrame::OnMyMessageBox(myMessageBoxEvent& event)
+{
+	int ret = wxMessageBox( event.GetMessage(), event.GetCaption(),
+		event.GetStyle(), event.GetParent(), event.GetX(), event.GetY() );
+
+	event.Return(ret);
 }

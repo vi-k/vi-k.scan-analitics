@@ -1,11 +1,11 @@
 /* GIMP RGBA C-Source image dump (cartographer.c) */
 
-static const struct {
+static const struct cartographer_st {
   unsigned int 	 width;
   unsigned int 	 height;
   unsigned int 	 bytes_per_pixel; /* 3:RGB, 4:RGBA */ 
   unsigned char	 pixel_data[32 * 32 * 4 + 1];
-} cartographer32 = {
+} cartographer = {
   32, 32, 4,
   "\377\377\377\0\377\377\377\0\377\377\377\0\377\377\377\0\377\377\377\0\377"
   "\377\377\0\377\377\377\0\377\377\377\0\377\377\377\0\377\377\377\0\377\377"
