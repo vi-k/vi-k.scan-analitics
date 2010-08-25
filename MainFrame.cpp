@@ -746,6 +746,14 @@ void MainFrame::GpsTrackerProc(my::worker::ptr this_worker)
 		if (Gps_test_)
 			sprintf(buf, "GPSD,P=48.5 135.1,V=2.5,T=45.0,A=100.0");
 
+		char *ptr = buf;
+		while (*ptr)
+		{
+			if (*ptr == '?')
+				*ptr = '0';
+			ptr++;
+		}
+
 		n = sscanf(buf, "GPSD,P=%lf %lf,V=%lf,T=%lf,A=%lf",
 			&gps_pt.lat, &gps_pt.lon,
 			&gps_speed, &gps_azimuth, &gps_altitude);
@@ -754,7 +762,7 @@ void MainFrame::GpsTrackerProc(my::worker::ptr this_worker)
 			gps_ok = false;
 		else
 		{
-			gps_ok = true;
+			gps_ok = !(gps_pt.lat == 0.0 && gps_pt.lon == 0.0);
 			gps_speed *= 1.852; /* Узлы в км/ч */
 		}
 

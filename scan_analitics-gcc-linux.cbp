@@ -11,7 +11,7 @@
 				<Option object_output="obj/Debug-gcc/" />
 				<Option type="0" />
 				<Option compiler="gcc" />
-				<Option parameters="&gt;a" />
+				<Option parameters="&gt; /home/dunaev/C++/scan_analitics/a" />
 				<Option projectLinkerOptionsRelation="2" />
 				<Compiler>
 					<Add option="-g" />
