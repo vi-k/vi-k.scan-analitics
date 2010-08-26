@@ -261,6 +261,7 @@ class MainFrame: my::employer, public wxFrame
 		bool Gps_ok_;
 		bool Gps_test_;
 		mutex Gps_mutex_;
+		std::wstring Gps_buf_;
 
 		void GpsTrackerProc(my::worker::ptr this_worker);
 

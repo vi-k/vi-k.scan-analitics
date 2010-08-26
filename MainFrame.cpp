@@ -14,6 +14,8 @@ extern my::log main_log;
 extern my::log debug_log;
 extern wxFileConfig *MyConfig;
 
+my::log gps_log(L"gps.log", my::log::clean);
+
 #include <string>
 #include <sstream>
 
@@ -148,8 +150,6 @@ MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
 	, Gps_test_(false)
 	, MY_MUTEX_DEF(Gps_mutex_,true)
 {
-	MY_REGISTER_THREAD("Main");
-
 	#undef _
 	#define _(s) (L##s)
 
@@ -354,12 +354,10 @@ MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
 	Cartographer->MoveTo(13,
 		cartographer::DMSToDD( 48,28,48.77, 135,4,19.04 ));
 
-	UpdateWiFiData( macaddr(0, 0x10, 0xE7, 0xA4, 0x46, 0x9D) );
+	//UpdateWiFiData( macaddr(0, 0x10, 0xE7, 0xA4, 0x46, 0x9D) );
 	WiFiScan_worker_ = new_worker( L"WiFiScan_worker");
 
 	GpsTracker_worker_ = new_worker( L"GpsTracker_worker");
-
-	//int a = PQisthreadsafe();
 
 	boost::thread( boost::bind(
 		&MainFrame::CheckerProc, this, new_worker( L"Checker_worker")) );
@@ -596,11 +594,12 @@ void MainFrame::StatusHandler(std::wstring &str)
 				&lon_sign, &lon_d, &lon_m, &lon_s );
 
 			__swprintf(buf, sizeof(buf)/sizeof(*buf),
-				L"%s%d°%02d\'%05.2f\"  %s%d°%02d\'%05.2f\""
-				L"  %0.2fкм/ч  %0.1f°  %0.1fм",
+				L"%s%d°%02d\'%05.2f\" %s%d°%02d\'%05.2f\""
+				L" %0.2fкм/ч %0.1f° %0.1fм (%ls)",
 				lat_sign < 0 ? L"-" : L"", lat_d, lat_m, lat_s,
 				lon_sign < 0 ? L"-" : L"", lon_d, lon_m, lon_s,
-				Gps_speed_, Gps_azimuth_, Gps_altitude_);
+				Gps_speed_, Gps_azimuth_, Gps_altitude_,
+				Gps_buf_.c_str());
 
 			str += buf;
 		}
@@ -742,6 +741,7 @@ void MainFrame::GpsTrackerProc(my::worker::ptr this_worker)
 		double gps_azimuth;
 		double gps_altitude;
 		bool gps_ok;
+		std::string gps_buf(buf);
 
 		if (Gps_test_)
 			sprintf(buf, "GPSD,P=48.5 135.1,V=2.5,T=45.0,A=100.0");
@@ -774,6 +774,8 @@ void MainFrame::GpsTrackerProc(my::worker::ptr this_worker)
 			Gps_speed_ = gps_speed;
 			Gps_azimuth_ = gps_azimuth;
 			Gps_altitude_ = gps_altitude;
+			Gps_buf_ = my::str::to_wstring(gps_buf);
+			gps_log << Gps_buf_ << gps_log;
 		}
 
 		if (gps_ok && Anchor_ == GpsAnchor)

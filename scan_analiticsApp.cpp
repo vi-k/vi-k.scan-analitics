@@ -25,52 +25,21 @@
 
 wxFileConfig *MyConfig = NULL;
 
-std::wofstream main_log_stream;
-void on_main_log(const std::wstring &text)
-{
-	main_log_stream << my::time::to_wstring(
-		my::time::local_now(), L"[%Y-%m-%d %H:%M:%S%f]\n")
-		<< text << L"\n\n";
-	main_log_stream.flush();
-}
-my::log main_log(on_main_log);
-
-void on_debug_log(const std::wstring &text)
-{
-	std::wcout << my::time::to_wstring(
-			my::time::local_now(), L"[%Y-%m-%d %H:%M:%S%f]*")
-		<< text << L" [thread="
-		<< my::str::to_wstring( my::get_thread_name() )
-		<< L"]\n" << std::flush;
-}
-my::log debug_log(on_debug_log);
+my::log main_log(L"main.log", my::log::multiline);
+my::log debug_log(L"debug.log", my::log::clean);
 
 IMPLEMENT_APP(scan_analiticsApp);
 
 bool scan_analiticsApp::OnInit()
 {
+	MY_REGISTER_THREAD("Main");
+
 	#if wxUSE_ON_FATAL_EXCEPTION
 	wxHandleFatalExceptions(true);
 	#endif
 
-	/* Открываем лог */
-	bool log_exists = fs::exists("main.log");
-
-	if (!log_exists)
-	{
-		std::ofstream fs("main.log");
-		fs << "\xEF\xBB\xBF";
-		fs.close();
-	}
-
-	main_log_stream.open("main.log", std::ios::app);
-	main_log_stream.imbue( std::locale( main_log_stream.getloc(),
-		new boost::archive::detail::utf8_codecvt_facet) );
-
-	if (log_exists)
-		main_log_stream << std::endl;
-
 	main_log << L"Start" << main_log;
+	debug_log << L"Start" << debug_log;
 
 	/* Открываем файл настроек */
 	{
@@ -81,11 +50,11 @@ bool scan_analiticsApp::OnInit()
 	//(*AppInitialize
 	bool wxsOK = true;
 	wxInitAllImageHandlers();
-	if ( wxsOK )
+	if (wxsOK)
 	{
-	MainFrame* Frame = new MainFrame(0);
-	Frame->Show();
-	SetTopWindow(Frame);
+		MainFrame* Frame = new MainFrame(0);
+		Frame->Show();
+		SetTopWindow(Frame);
 	}
 	//*)
 	return wxsOK;
