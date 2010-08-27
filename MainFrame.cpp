@@ -124,7 +124,7 @@ wxBitmap LoadBitmapFromC(const C_ImageStruct &st)
 }
 
 MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
-	: my::employer(L"MainFrame_employer")
+	: my::employer(L"MainFrame_employer", false)
 	, Cartographer(0)
 	, Anchor_(NoAnchor)
 	, WiFi_data_(NULL)
@@ -137,9 +137,9 @@ MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
 	, big_font_(0)
 	, small_font_(0)
 	, gps_tracker_id_(0)
-	, green_mark16_id_(0)
-	, red_mark16_id_(0)
-	, yellow_mark16_id_(0)
+	, green_mark_id_(0)
+	, red_mark_id_(0)
+	, yellow_mark_id_(0)
 	, pg_conn_(NULL)
 	, MY_MUTEX_DEF(pg_mutex_,true)
 	, Gps_speed_(0.0)
@@ -338,9 +338,9 @@ MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
 	gps_tracker_id_ = Cartographer->LoadImageFromC(images::gps_tracker);
 	Cartographer->SetImageCentralPoint(gps_tracker_id_, 15.5, 19.0);
 
-	green_mark16_id_ = Cartographer->LoadImageFromC(images::green_mark);
-	red_mark16_id_ = Cartographer->LoadImageFromC(images::red_mark);
-	yellow_mark16_id_ = Cartographer->LoadImageFromC(images::yellow_mark);
+	green_mark_id_ = Cartographer->LoadImageFromC(images::green_mark);
+	red_mark_id_ = Cartographer->LoadImageFromC(images::red_mark);
+	yellow_mark_id_ = Cartographer->LoadImageFromC(images::yellow_mark);
 
 
 	/* Запускаем собственную прорисовку */
@@ -359,7 +359,7 @@ MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
 	GpsTracker_worker_ = new_worker( L"GpsTracker_worker");
 
 	boost::thread( boost::bind(
-		&MainFrame::CheckerProc, this, new_worker( L"Checker_worker")) );
+		&MainFrame::CheckerProc, this, new_worker(L"Checker_worker")) );
 }
 
 MainFrame::~MainFrame()
@@ -461,6 +461,28 @@ void MainFrame::OnMapPaint(double z, const cartographer::size &screen_size)
 	printf("\n\n");
 	-*/
 
+	#if 0
+	{
+		cartographer::coord pt;
+		for (pt.lat = -88.0; pt.lat < 88; pt.lat += 1.0)
+			for (pt.lon = -180.0; pt.lon < 180.0; pt.lon += 1.0)
+			{
+				glColor4d(1.0, 1.0, 1.0, 1.0);
+
+				glBindTexture(GL_TEXTURE_2D, 2);
+				glBegin(GL_QUADS);
+					glTexCoord2d(0.0, 0.0); glVertex3d(-100, -100, 0);
+					glTexCoord2d(1.0, 0.0); glVertex3d(-200, -100, 0);
+					glTexCoord2d(1.0, 1.0); glVertex3d(-200, -200, 0);
+					glTexCoord2d(0.0, 1.0); glVertex3d(-100, -200, 0);
+				glEnd();
+
+				//Cartographer->CoordToScreen(pt);
+				//Cartographer->DrawImage(green_mark_id_, pt);
+			}
+	}
+	#endif
+
 	if (z > 10.0)
 	{
 		unique_lock<mutex> lock(WiFi_mutex_, boost::try_to_lock);
@@ -501,19 +523,18 @@ void MainFrame::OnMapPaint(double z, const cartographer::size &screen_size)
 				if (power_k > 1.0)
 					power_k = 1.0;
 
-				/*-
 				if (power_k < 0.5)
 				{
-					Cartographer->DrawImage(green_mark16_id_, pt);
-					Cartographer->DrawImage(yellow_mark16_id_, pt, 2.0 * power_k);
+					Cartographer->DrawImage(green_mark_id_, pt);
+					Cartographer->DrawImage(yellow_mark_id_, pt, 1.0, 2.0 * power_k);
 				}
 				else
 				{
-					DrawImage(yellow_mark16_id_, pt);
-					DrawImage(red_mark16_id_, pt, 2.0 * (power_k - 0.5));
+					Cartographer->DrawImage(yellow_mark_id_, pt);
+					Cartographer->DrawImage(red_mark_id_, pt, 1.0, 2.0 * (power_k - 0.5));
 				}
-				-*/
 
+				/*-
 				double green_k = power_k < 0.5 ? 1.0 : 2.0 * (1.0 - power_k);
 				double red_k = power_k < 0.5 ? 2.0 * power_k : 1.0;
 
@@ -521,6 +542,7 @@ void MainFrame::OnMapPaint(double z, const cartographer::size &screen_size)
 					Cartographer->CoordToScreen(pt), 5.0, 2.0,
 					cartographer::color(red_k, green_k, 0.0),
 					cartographer::color(red_k, green_k, 0.0, 0.3));
+				-*/
 
 				/*-
 				pos.y += 5.0;
@@ -900,8 +922,10 @@ void MainFrame::UpdateWiFiData(const macaddr &mac)
 		title = L"Scan Analitics (" + mac.to_wstring() + L")";
 
 		std::string query
-			= "SELECT * FROM wifi_scan_data WHERE station_mac=\'"
-				+ mac.to_string() + "\' ORDER BY scan_power";
+			= "SELECT * FROM wifi_scan_data"
+			" WHERE station_mac=\'" + mac.to_string() + "\'"
+			" AND NOT (scan_lat=0.0 AND scan_long=0.0)"
+			" ORDER BY scan_power";
 
 		PGresult *wifi_data = PQexec(pg_conn_, query.c_str());
 

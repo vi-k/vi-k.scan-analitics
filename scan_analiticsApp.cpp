@@ -20,7 +20,7 @@
 #include <mylib.h>
 
 #include <string>
-#include <fstream>
+#include <iostream>
 #include <exception>
 
 wxFileConfig *MyConfig = NULL;

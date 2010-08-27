@@ -242,9 +242,9 @@ class MainFrame: my::employer, public wxFrame
 
 		/* Изображения */
 		int gps_tracker_id_;
-		int green_mark16_id_;
-		int red_mark16_id_;
-		int yellow_mark16_id_;
+		int green_mark_id_;
+		int red_mark_id_;
+		int yellow_mark_id_;
 
 		/* Postgre */
 		PGconn *pg_conn_;
