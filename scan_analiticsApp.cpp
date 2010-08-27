@@ -25,21 +25,19 @@
 
 wxFileConfig *MyConfig = NULL;
 
-my::log main_log(L"main.log", my::log::multiline);
-my::log debug_log(L"debug.log", my::log::clean);
+my::log main_log(L"main.log", my::log::clean);
 
 IMPLEMENT_APP(scan_analiticsApp);
 
 bool scan_analiticsApp::OnInit()
 {
-	MY_REGISTER_THREAD("Main");
+	MY_REGISTER_THREAD(L"Main");
 
 	#if wxUSE_ON_FATAL_EXCEPTION
 	wxHandleFatalExceptions(true);
 	#endif
 
 	main_log << L"Start" << main_log;
-	debug_log << L"Start" << debug_log;
 
 	/* Открываем файл настроек */
 	{

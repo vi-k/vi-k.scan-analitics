@@ -8,11 +8,10 @@
 
 #include <boost/bind.hpp>
 
-extern my::log main_log;
-extern my::log debug_log;
-
 namespace cartographer
 {
+
+my::log log(L"cartographer.log", my::log::clean);
 
 wxDEFINE_EVENT(MY_EVENT, wxCommandEvent);
 
@@ -31,7 +30,7 @@ END_EVENT_TABLE()
 
 Base::Base(wxWindow *parent, const std::wstring &server_addr,
 	const std::wstring &init_map, std::size_t cache_size)
-	: my::employer("Cartographer_employer")
+	: my::employer(L"Cartographer_employer")
 	, wxGLCanvas(parent, wxID_ANY, NULL /* attribs */,
 		wxDefaultPosition, wxDefaultSize,
 		wxFULL_REPAINT_ON_RESIZE)
@@ -476,7 +475,7 @@ tile::ptr Base::get_tile(const tile::id &tile_id)
 /* Загрузчик тайлов с диска. При пустой очереди - засыпает */
 void Base::file_loader_proc(my::worker::ptr this_worker)
 {
-	MY_REGISTER_THREAD("cartographer::file_loader");
+	MY_REGISTER_THREAD(L"cartographer::file_loader");
 
 	while (!finish())
 	{
@@ -548,7 +547,7 @@ void Base::file_loader_proc(my::worker::ptr this_worker)
 			if (!tile_ptr->load_from_file(filename))
 			{
 				tile_ptr->set_state(tile::ready);
-				main_log << L"Ошибка загрузки wxImage: " << filename << main_log;
+				log << L"Ошибка загрузки wxImage: " << filename << log;
 			}
 		}
 
@@ -558,7 +557,7 @@ void Base::file_loader_proc(my::worker::ptr this_worker)
 /* Загрузчик тайлов с сервера. При пустой очереди - засыпает */
 void Base::server_loader_proc(my::worker::ptr this_worker)
 {
-	MY_REGISTER_THREAD("cartographer::server_loader");
+	MY_REGISTER_THREAD(L"cartographer::server_loader");
 
 	while (!finish())
 	{
@@ -645,7 +644,7 @@ void Base::server_loader_proc(my::worker::ptr this_worker)
 				else
 				{
 					tile_ptr->set_state(tile::ready);
-					main_log << L"Ошибка загрузки wxImage: " << request.str() << main_log;
+					log << L"Ошибка загрузки wxImage: " << request.str() << log;
 				}
 			}
 		}
@@ -659,7 +658,7 @@ void Base::server_loader_proc(my::worker::ptr this_worker)
 
 void Base::anim_thread_proc(my::worker::ptr this_worker)
 {
-	MY_REGISTER_THREAD("cartographer::animator");
+	MY_REGISTER_THREAD(L"cartographer::animator");
 
 	asio::io_service io_service;
 	asio::deadline_timer timer(io_service, my::time::utc_now());
@@ -668,7 +667,7 @@ void Base::anim_thread_proc(my::worker::ptr this_worker)
 	{
 		++animator_debug_counter_;
 
-		debug_log << L"cartographer::anim_thread_proc()" << debug_log;
+		log << L"cartographer::anim_thread_proc()" << log;
 
 		{
 			unique_lock<recursive_mutex> lock(params_mutex_);
@@ -700,12 +699,12 @@ void Base::anim_thread_proc(my::worker::ptr this_worker)
 				но уже навечно */
 			unique_lock<mutex> lock(this_worker->get_mutex());
 
-			debug_log << L"send_my_event(MY_ID_REPAINT)" << debug_log;
+			log << L"send_my_event(MY_ID_REPAINT)" << log;
 			send_my_event(MY_ID_REPAINT);
 
-			debug_log << L"sleep(this_worker)" << debug_log;
+			log << L"sleep(this_worker)" << log;
 			sleep(this_worker, lock);
-			debug_log << L"wake_up(this_worker)" << debug_log;
+			log << L"wake_up(this_worker)" << log;
 		}
 
 		boost::posix_time::ptime time = timer.expires_at() + anim_period_;
@@ -717,13 +716,13 @@ void Base::anim_thread_proc(my::worker::ptr this_worker)
 			В этом случае следующий запуск делаем относительно текущего времени */
 		if (now > time)
 		{
-			debug_log << L"without timer" << debug_log;
+			log << L"without timer" << log;
 			timer.expires_at(now);
 		}
 		else
 		{
-			debug_log << L"timer.expires_at("
-				<< my::time::to_wstring(time) << L')' << debug_log;
+			log << L"timer.expires_at("
+				<< my::time::to_wstring(time) << L')' << log;
 			timer.expires_at(time);
 			timer.wait();
 		}
@@ -839,7 +838,7 @@ void Base::paint_debug_info_int(DC &gc, int width, int height)
 
 void Base::repaint()
 {
-	debug_log << L"cartographer::repaint()" << debug_log;
+	log << L"repaint()" << log;
 
 	unique_lock<mutex> l1(paint_mutex_);
 	unique_lock<recursive_mutex> l2(params_mutex_);
@@ -1080,7 +1079,7 @@ void Base::repaint()
 		for (int y = z_i_tile_y1; y < z_i_tile_y2; ++y)
 			paint_tile( tile::id(map_id_, z_i, x, y) );
 
-	debug_log << L"cartographer::repaint() after paint map" << debug_log;
+	log << L"repaint() after paint map" << log;
 
 	/* Меняем проекцию на проекцию экрана */
 	{
@@ -1099,7 +1098,7 @@ void Base::repaint()
 
 	magic_exec();
 
-	debug_log << L"cartographer::repaint() before on_paint" << debug_log;
+	log << L"repaint() before on_paint" << log;
 
 	/* Картинка пользователя */
 	if (on_paint_handler_)
@@ -1108,7 +1107,7 @@ void Base::repaint()
 		magic_exec();
 	}
 
-	debug_log << L"cartographer::repaint() after on_paint" << debug_log;
+	log << L"repaint() after on_paint" << log;
 
 	/* Показываем fix-точку при изменении масштаба */
 	if (central_cross_step_ || dz > 0.1)
@@ -1137,17 +1136,17 @@ void Base::repaint()
 		check_gl_error();
 	}
 
-	debug_log << L"cartographer::repaint() before after_paint()" << debug_log;
+	log << L"repaint() before after_paint()" << log;
 
 	after_repaint(screen_size);
 
-	debug_log << L"cartographer::repaint() after after_paint()" << debug_log;
+	log << L"repaint() after after_paint()" << log;
 
 	glFlush();
 	SwapBuffers();
 	check_gl_error();
 
-	debug_log << L"cartographer::repaint() after SwapBuffers()" << debug_log;
+	log << L"repaint() after SwapBuffers()" << log;
 
 	/* Удаляем текстуры, вышедшие из употребления */
 	delete_textures();
@@ -1179,10 +1178,10 @@ void Base::repaint()
 
 	anim_freq_sw_.start();
 
-	debug_log << L"wake_up(animator)" << debug_log;
+	log << L"wake_up(animator)" << log;
 	wake_up(animator_);
 
-	debug_log << L"~ cartographer::repaint()" << debug_log;
+	log << L"~ repaint()" << log;
 }
 
 size Base::get_screen_size()

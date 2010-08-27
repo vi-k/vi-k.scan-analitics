@@ -11,10 +11,9 @@ bool ppp = false;
 #include "SettingsDialog.h"
 
 extern my::log main_log;
-extern my::log debug_log;
 extern wxFileConfig *MyConfig;
 
-my::log gps_log(L"gps.log", my::log::clean);
+my::log gps_log(L"gps.log", my::log::clean | my::log::singleline);
 
 #include <string>
 #include <sstream>
@@ -125,7 +124,7 @@ wxBitmap LoadBitmapFromC(const C_ImageStruct &st)
 }
 
 MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
-	: my::employer("MainFrame_employer")
+	: my::employer(L"MainFrame_employer")
 	, Cartographer(0)
 	, Anchor_(NoAnchor)
 	, WiFi_data_(NULL)
@@ -568,7 +567,7 @@ void MainFrame::OnMapPaint(double z, const cartographer::size &screen_size)
 
 void MainFrame::StatusHandler(std::wstring &str)
 {
-	debug_log << L"StatusHandler()" << debug_log;
+	main_log << L"StatusHandler()" << main_log;
 
 	str += L" | GPS: ";
 
@@ -608,11 +607,11 @@ void MainFrame::StatusHandler(std::wstring &str)
 
 void MainFrame::CheckerProc(my::worker::ptr this_worker)
 {
-	MY_REGISTER_THREAD("Checker");
+	MY_REGISTER_THREAD(L"Checker");
 
 	while (!finish())
 	{
-		debug_log << L"CheckerProc()" << debug_log;
+		main_log << L"CheckerProc()" << main_log;
 		timed_sleep( this_worker, posix_time::milliseconds(1000) );
 	}
 }
@@ -622,7 +621,7 @@ void MainFrame::OnIdle(wxIdleEvent& event)
 	static posix_time::ptime start = my::time::utc_now();
 	if (my::time::utc_now() - start > posix_time::milliseconds(100))
 	{
-		debug_log << L"OnIdle()" << debug_log;
+		main_log << L"OnIdle()" << main_log;
 		UpdateButtons();
 		start = my::time::utc_now();
 	}
@@ -701,7 +700,7 @@ void MainFrame::OnGpsAnchor(wxCommandEvent& event)
 
 void MainFrame::GpsTrackerProc(my::worker::ptr this_worker)
 {
-	MY_REGISTER_THREAD("GpsTracker");
+	MY_REGISTER_THREAD(L"GpsTracker");
 
 	int gpsd_sock = socket( AF_INET, SOCK_STREAM, 0);
 	if( gpsd_sock < 0)
@@ -724,7 +723,7 @@ void MainFrame::GpsTrackerProc(my::worker::ptr this_worker)
 
 	while ( !finish(this_worker) )
 	{
-		debug_log << L"GpsTrackerProc()" << debug_log;
+		main_log << L"GpsTrackerProc()" << main_log;
 
 		int n = snprintf(buf, sizeof(buf) / sizeof(*buf), "pvta\r\n");
 		if (send(gpsd_sock, buf, n, 0) != n)
@@ -830,7 +829,7 @@ void MainFrame::OnWiFiAnchor(wxCommandEvent& event)
 
 void MainFrame::WiFiScanProc(my::worker::ptr this_worker)
 {
-	MY_REGISTER_THREAD("WiFiScan");
+	MY_REGISTER_THREAD(L"WiFiScan");
 
 	int wifi_sock;
 
@@ -859,7 +858,7 @@ void MainFrame::WiFiScanProc(my::worker::ptr this_worker)
 
 	while ( !finish(this_worker) )
 	{
-		debug_log << L"WiFiScanProc()" << debug_log;
+		main_log << L"WiFiScanProc()" << main_log;
 
 		macaddr mac;
 
