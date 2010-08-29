@@ -19,7 +19,6 @@
 #include <wx/menu.h>
 #include <wx/panel.h>
 #include <wx/frame.h>
-#include <wx/combobox.h>
 #include <wx/statusbr.h>
 //*)
 
@@ -218,6 +217,8 @@ class MainFrame: my::employer, public wxFrame
 
 		cartographer::Painter *Cartographer;
 
+		void OnMapChange(wxCommandEvent& event);
+
 		enum { NoAnchor, GpsAnchor, WiFiAnchor };
 		int Anchor_;
 
@@ -293,7 +294,6 @@ class MainFrame: my::employer, public wxFrame
 		//(*Handlers(MainFrame)
 		void OnQuit(wxCommandEvent& event);
 		void OnAbout(wxCommandEvent& event);
-		void OnComboBox1Select(wxCommandEvent& event);
 		void OnSettings(wxCommandEvent& event);
 		void OnZoomIn(wxCommandEvent& event);
 		void OnZoomOut(wxCommandEvent& event);
@@ -307,39 +307,34 @@ class MainFrame: my::employer, public wxFrame
 		void OnIdle(wxIdleEvent& event);
 
 		//(*Identifiers(MainFrame)
-		static const long ID_COMBOBOX1;
-		static const long ID_PANEL2;
 		static const long ID_PANEL1;
-		static const long ID_MENUITEM3;
-		static const long ID_MENU_QUIT;
-		static const long ID_MENUITEM2;
-		static const long ID_MENUITEM1;
+		static const long ID_SETTINGS;
+		static const long ID_QUIT;
+		static const long ID_MENUMAPS;
 		static const long ID_ZOOMIN;
 		static const long ID_ZOOMOUT;
 		static const long ID_GPSTRACKER;
 		static const long ID_GPSANCHOR;
 		static const long ID_WIFISCAN;
 		static const long ID_WIFIANCHOR;
-		static const long ID_MENU_ABOUT;
+		static const long ID_ABOUT;
 		static const long ID_STATUSBAR1;
 		//*)
 
 		//(*Declarations(MainFrame)
-		wxMenuItem* MenuItem8;
-		wxMenuItem* MenuItem7;
-		wxMenuItem* MenuItem5;
-		wxMenu* Menu3;
-		wxMenu* MenuItem3;
-		wxMenuItem* MenuItem4;
+		wxMenuItem* MenuSettings;
+		wxMenuItem* MenuMapsNull;
+		wxMenuItem* MenuZoomIn;
+		wxMenuItem* MenuWifiScan;
 		wxPanel* Panel1;
-		wxMenuItem* Menu4;
-		wxMenuItem* Menu5;
+		wxMenuItem* MenuZoomOut;
+		wxMenuItem* MenuWiFiAnchor;
+		wxMenu* MenuMaps;
 		wxStatusBar* StatusBar1;
-		wxMenuItem* MenuItem6;
-		wxComboBox* ComboBox1;
-		wxPanel* Panel2;
+		wxMenuItem* MenuGpsTracker;
+		wxMenuItem* MenuGpsAnchor;
 		wxFlexGridSizer* FlexGridSizer1;
-		wxMenuItem* MenuItem9;
+		wxMenu* MenuView;
 		//*)
 
 		DECLARE_EVENT_TABLE()

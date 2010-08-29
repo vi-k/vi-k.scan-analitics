@@ -42,20 +42,17 @@ namespace images
 wxDEFINE_EVENT(MY_MESSAGEBOX, myMessageBoxEvent);
 
 //(*IdInit(MainFrame)
-const long MainFrame::ID_COMBOBOX1 = wxNewId();
-const long MainFrame::ID_PANEL2 = wxNewId();
 const long MainFrame::ID_PANEL1 = wxNewId();
-const long MainFrame::ID_MENUITEM3 = wxNewId();
-const long MainFrame::ID_MENU_QUIT = wxNewId();
-const long MainFrame::ID_MENUITEM2 = wxNewId();
-const long MainFrame::ID_MENUITEM1 = wxNewId();
+const long MainFrame::ID_SETTINGS = wxNewId();
+const long MainFrame::ID_QUIT = wxNewId();
+const long MainFrame::ID_MENUMAPS = wxNewId();
 const long MainFrame::ID_ZOOMIN = wxNewId();
 const long MainFrame::ID_ZOOMOUT = wxNewId();
 const long MainFrame::ID_GPSTRACKER = wxNewId();
 const long MainFrame::ID_GPSANCHOR = wxNewId();
 const long MainFrame::ID_WIFISCAN = wxNewId();
 const long MainFrame::ID_WIFIANCHOR = wxNewId();
-const long MainFrame::ID_MENU_ABOUT = wxNewId();
+const long MainFrame::ID_ABOUT = wxNewId();
 const long MainFrame::ID_STATUSBAR1 = wxNewId();
 //*)
 
@@ -153,57 +150,54 @@ MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
 	#define _(s) (L##s)
 
 	//(*Initialize(MainFrame)
-	wxMenuItem* MenuItem2;
-	wxMenuItem* MenuItem1;
-	wxMenu* Menu1;
+	wxMenu* MenuHelp;
+	wxMenuItem* MenuAbout;
 	wxMenuBar* MainMenu;
-	wxMenu* Menu2;
+	wxMenu* MenuFile;
+	wxMenuItem* MenuQuit;
 
 	Create(parent, wxID_ANY, _("Scan Analitics"), wxDefaultPosition, wxDefaultSize, wxDEFAULT_FRAME_STYLE, _T("wxID_ANY"));
 	SetClientSize(wxSize(626,293));
 	SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNFACE));
-	FlexGridSizer1 = new wxFlexGridSizer(2, 1, 0, 0);
+	FlexGridSizer1 = new wxFlexGridSizer(1, 1, 0, 0);
 	FlexGridSizer1->AddGrowableCol(0);
-	FlexGridSizer1->AddGrowableRow(1);
-	Panel2 = new wxPanel(this, ID_PANEL2, wxDefaultPosition, wxSize(616,61), wxTAB_TRAVERSAL, _T("ID_PANEL2"));
-	ComboBox1 = new wxComboBox(Panel2, ID_COMBOBOX1, wxEmptyString, wxPoint(8,8), wxSize(208,24), 0, 0, wxCB_READONLY|wxCB_DROPDOWN, wxDefaultValidator, _T("ID_COMBOBOX1"));
-	FlexGridSizer1->Add(Panel2, 1, wxALL|wxEXPAND|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 5);
+	FlexGridSizer1->AddGrowableRow(0);
 	Panel1 = new wxPanel(this, ID_PANEL1, wxDefaultPosition, wxSize(616,331), wxTAB_TRAVERSAL, _T("ID_PANEL1"));
 	FlexGridSizer1->Add(Panel1, 1, wxALL|wxEXPAND|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 5);
 	SetSizer(FlexGridSizer1);
 	MainMenu = new wxMenuBar();
-	Menu1 = new wxMenu();
-	MenuItem5 = new wxMenuItem(Menu1, ID_MENUITEM3, _("Настройки..."), wxEmptyString, wxITEM_NORMAL);
-	Menu1->Append(MenuItem5);
-	Menu1->AppendSeparator();
-	MenuItem1 = new wxMenuItem(Menu1, ID_MENU_QUIT, _("Выход\tAlt-F4"), wxEmptyString, wxITEM_NORMAL);
-	Menu1->Append(MenuItem1);
-	MainMenu->Append(Menu1, _("Файл"));
-	Menu3 = new wxMenu();
-	MenuItem3 = new wxMenu();
-	MenuItem4 = new wxMenuItem(MenuItem3, ID_MENUITEM2, _("Карта"), wxEmptyString, wxITEM_NORMAL);
-	MenuItem3->Append(MenuItem4);
-	Menu3->Append(ID_MENUITEM1, _("Карты"), MenuItem3, wxEmptyString);
-	Menu3->AppendSeparator();
-	Menu4 = new wxMenuItem(Menu3, ID_ZOOMIN, _("Увеличить масштаб"), wxEmptyString, wxITEM_NORMAL);
-	Menu3->Append(Menu4);
-	Menu5 = new wxMenuItem(Menu3, ID_ZOOMOUT, _("Уменьшить масштаб"), wxEmptyString, wxITEM_NORMAL);
-	Menu3->Append(Menu5);
-	Menu3->AppendSeparator();
-	MenuItem6 = new wxMenuItem(Menu3, ID_GPSTRACKER, _("Загружать данные с Gps"), wxEmptyString, wxITEM_CHECK);
-	Menu3->Append(MenuItem6);
-	MenuItem7 = new wxMenuItem(Menu3, ID_GPSANCHOR, _("Следить за Gps"), wxEmptyString, wxITEM_CHECK);
-	Menu3->Append(MenuItem7);
-	Menu3->AppendSeparator();
-	MenuItem8 = new wxMenuItem(Menu3, ID_WIFISCAN, _("Загружать данные с WiFi-сканера"), wxEmptyString, wxITEM_CHECK);
-	Menu3->Append(MenuItem8);
-	MenuItem9 = new wxMenuItem(Menu3, ID_WIFIANCHOR, _("Следить за данными WiFi-сканера"), wxEmptyString, wxITEM_CHECK);
-	Menu3->Append(MenuItem9);
-	MainMenu->Append(Menu3, _("Вид"));
-	Menu2 = new wxMenu();
-	MenuItem2 = new wxMenuItem(Menu2, ID_MENU_ABOUT, _("О программе...\tF1"), wxEmptyString, wxITEM_NORMAL);
-	Menu2->Append(MenuItem2);
-	MainMenu->Append(Menu2, _("Помощь"));
+	MenuFile = new wxMenu();
+	MenuSettings = new wxMenuItem(MenuFile, ID_SETTINGS, _("Настройки..."), wxEmptyString, wxITEM_NORMAL);
+	MenuFile->Append(MenuSettings);
+	MenuFile->AppendSeparator();
+	MenuQuit = new wxMenuItem(MenuFile, ID_QUIT, _("Выход\tAlt-F4"), wxEmptyString, wxITEM_NORMAL);
+	MenuFile->Append(MenuQuit);
+	MainMenu->Append(MenuFile, _("Файл"));
+	MenuView = new wxMenu();
+	MenuMaps = new wxMenu();
+	MenuMapsNull = new wxMenuItem(MenuMaps, 0, _("Нет карт"), wxEmptyString, wxITEM_RADIO);
+	MenuMaps->Append(MenuMapsNull);
+	MenuView->Append(ID_MENUMAPS, _("Карты"), MenuMaps, wxEmptyString);
+	MenuView->AppendSeparator();
+	MenuZoomIn = new wxMenuItem(MenuView, ID_ZOOMIN, _("Увеличить масштаб"), wxEmptyString, wxITEM_NORMAL);
+	MenuView->Append(MenuZoomIn);
+	MenuZoomOut = new wxMenuItem(MenuView, ID_ZOOMOUT, _("Уменьшить масштаб"), wxEmptyString, wxITEM_NORMAL);
+	MenuView->Append(MenuZoomOut);
+	MenuView->AppendSeparator();
+	MenuGpsTracker = new wxMenuItem(MenuView, ID_GPSTRACKER, _("Загружать данные с Gps"), wxEmptyString, wxITEM_CHECK);
+	MenuView->Append(MenuGpsTracker);
+	MenuGpsAnchor = new wxMenuItem(MenuView, ID_GPSANCHOR, _("Следить за Gps"), wxEmptyString, wxITEM_CHECK);
+	MenuView->Append(MenuGpsAnchor);
+	MenuView->AppendSeparator();
+	MenuWifiScan = new wxMenuItem(MenuView, ID_WIFISCAN, _("Загружать данные с WiFi-сканера"), wxEmptyString, wxITEM_CHECK);
+	MenuView->Append(MenuWifiScan);
+	MenuWiFiAnchor = new wxMenuItem(MenuView, ID_WIFIANCHOR, _("Следить за данными WiFi-сканера"), wxEmptyString, wxITEM_CHECK);
+	MenuView->Append(MenuWiFiAnchor);
+	MainMenu->Append(MenuView, _("Вид"));
+	MenuHelp = new wxMenu();
+	MenuAbout = new wxMenuItem(MenuHelp, ID_ABOUT, _("О программе...\tF1"), wxEmptyString, wxITEM_NORMAL);
+	MenuHelp->Append(MenuAbout);
+	MainMenu->Append(MenuHelp, _("Помощь"));
 	SetMenuBar(MainMenu);
 	StatusBar1 = new wxStatusBar(this, ID_STATUSBAR1, 0, _T("ID_STATUSBAR1"));
 	int __wxStatusBarWidths_1[1] = { -1 };
@@ -213,16 +207,15 @@ MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
 	SetStatusBar(StatusBar1);
 	FlexGridSizer1->SetSizeHints(this);
 
-	Connect(ID_COMBOBOX1,wxEVT_COMMAND_COMBOBOX_SELECTED,(wxObjectEventFunction)&MainFrame::OnComboBox1Select);
-	Connect(ID_MENUITEM3,wxEVT_COMMAND_MENU_SELECTED,(wxObjectEventFunction)&MainFrame::OnSettings);
-	Connect(ID_MENU_QUIT,wxEVT_COMMAND_MENU_SELECTED,(wxObjectEventFunction)&MainFrame::OnQuit);
+	Connect(ID_SETTINGS,wxEVT_COMMAND_MENU_SELECTED,(wxObjectEventFunction)&MainFrame::OnSettings);
+	Connect(ID_QUIT,wxEVT_COMMAND_MENU_SELECTED,(wxObjectEventFunction)&MainFrame::OnQuit);
 	Connect(ID_ZOOMIN,wxEVT_COMMAND_MENU_SELECTED,(wxObjectEventFunction)&MainFrame::OnZoomIn);
 	Connect(ID_ZOOMOUT,wxEVT_COMMAND_MENU_SELECTED,(wxObjectEventFunction)&MainFrame::OnZoomOut);
 	Connect(ID_GPSTRACKER,wxEVT_COMMAND_MENU_SELECTED,(wxObjectEventFunction)&MainFrame::OnGpsTracker);
 	Connect(ID_GPSANCHOR,wxEVT_COMMAND_MENU_SELECTED,(wxObjectEventFunction)&MainFrame::OnGpsAnchor);
 	Connect(ID_WIFISCAN,wxEVT_COMMAND_MENU_SELECTED,(wxObjectEventFunction)&MainFrame::OnWiFiScan);
 	Connect(ID_WIFIANCHOR,wxEVT_COMMAND_MENU_SELECTED,(wxObjectEventFunction)&MainFrame::OnWiFiAnchor);
-	Connect(ID_MENU_ABOUT,wxEVT_COMMAND_MENU_SELECTED,(wxObjectEventFunction)&MainFrame::OnAbout);
+	Connect(ID_ABOUT,wxEVT_COMMAND_MENU_SELECTED,(wxObjectEventFunction)&MainFrame::OnAbout);
 	//*)
 
 	setlocale(LC_NUMERIC, "C");
@@ -323,16 +316,28 @@ MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
 		wxFont(8, wxFONTFAMILY_SWISS, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_BOLD) );
 
 	/* Загружаем список карт */
-	int maps_count = Cartographer->GetMapsCount();
-	for( int i = 0; i < maps_count; ++i)
 	{
-		cartographer::map_info map = Cartographer->GetMapInfo(i);
-		ComboBox1->Append(map.name);
-	}
+		MenuMaps->Delete(MenuMapsNull);
+		cartographer::map_info active_map = Cartographer->GetActiveMapInfo();
 
-	/* Текущая карта */
-	cartographer::map_info map = Cartographer->GetActiveMapInfo();
-	ComboBox1->SetValue(map.name);
+		long maps_count = Cartographer->GetMapsCount();
+
+		for(long i = 0; i < maps_count; ++i)
+		{
+			cartographer::map_info map = Cartographer->GetMapInfo(i);
+
+			wxMenuItem *item = new wxMenuItem(MenuMaps, i,
+				map.name + L"\t" + my::num::to_wstring(i + 1),
+				wxEmptyString, wxITEM_RADIO);
+
+			MenuMaps->Append(item);
+
+			if (active_map.sid == map.sid)
+				item->Check();
+
+			MenuMaps->Bind(wxEVT_COMMAND_MENU_SELECTED, &MainFrame::OnMapChange, this, i);
+		}
+	}
 
 	/* Изображения */
 	gps_tracker_id_ = Cartographer->LoadImageFromC(images::gps_tracker);
@@ -444,12 +449,6 @@ void MainFrame::OnAbout(wxCommandEvent& event)
 
 	int ret = myMessageBox(L"Test", L"Title", wxOK | wxICON_ERROR, this);
 	ret = ret - ret;
-}
-
-void MainFrame::OnComboBox1Select(wxCommandEvent& event)
-{
-	std::wstring str = (const wchar_t *)ComboBox1->GetValue().c_str();
-	Cartographer->SetActiveMapByName(str);
 }
 
 void MainFrame::OnMapPaint(double z, const cartographer::size &screen_size)
@@ -652,15 +651,22 @@ void MainFrame::OnIdle(wxIdleEvent& event)
 void MainFrame::UpdateButtons()
 {
 	int anchor = Anchor_;
+	wxMenuBar *MainMenu = GetMenuBar();
 
 	/* GpsTracker */
 	bool gps_enabled = worked(GpsTracker_worker_);
+	MainMenu->Check(ID_GPSTRACKER, gps_enabled);
+	MainMenu->Enable(ID_GPSANCHOR, gps_enabled);
+	MainMenu->Check(ID_GPSANCHOR, gps_enabled && anchor == GpsAnchor);
 	MainToolBar->ToggleTool(ID_GPSTRACKER, gps_enabled);
 	MainToolBar->EnableTool(ID_GPSANCHOR, gps_enabled);
 	MainToolBar->ToggleTool(ID_GPSANCHOR, gps_enabled && anchor == GpsAnchor);
 
 	/* WiFiScan */
 	bool wifi_enabled = worked(WiFiScan_worker_);
+	MainMenu->Check(ID_WIFISCAN, wifi_enabled);
+	MainMenu->Enable(ID_WIFIANCHOR, wifi_enabled);
+	MainMenu->Check(ID_WIFIANCHOR, wifi_enabled && anchor == WiFiAnchor);
 	MainToolBar->ToggleTool(ID_WIFISCAN, wifi_enabled);
 	MainToolBar->EnableTool(ID_WIFIANCHOR, wifi_enabled);
 	MainToolBar->ToggleTool(ID_WIFIANCHOR, wifi_enabled && anchor == WiFiAnchor);
@@ -1026,4 +1032,9 @@ void MainFrame::OnMyMessageBox(myMessageBoxEvent& event)
 		event.GetStyle(), event.GetParent(), event.GetX(), event.GetY() );
 
 	event.Return(ret);
+}
+
+void MainFrame::OnMapChange(wxCommandEvent &event)
+{
+	Cartographer->SetActiveMapByIndex( event.GetId() );
 }
