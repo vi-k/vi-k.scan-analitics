@@ -443,10 +443,7 @@ void MainFrame::OnQuit(wxCommandEvent& event)
 
 void MainFrame::OnAbout(wxCommandEvent& event)
 {
-	//wxMessageBox( L"About...");
-
-	int ret = myMessageBox(L"Test", L"Title", wxOK | wxICON_ERROR, this);
-	ret = ret - ret;
+	myMessageBox(L"About...");
 }
 
 void MainFrame::OnMapPaint(double z, const cartographer::size &screen_size)
@@ -992,6 +989,9 @@ void MainFrame::UpdateWiFiData(const macaddr &mac)
 int MainFrame::myMessageBox(const wxString &message,
 	const wxString &caption, int style, wxWindow *parent, int x, int y)
 {
+	if (wxThread::IsMain())
+		return wxMessageBox(message, caption, style, parent, x, y);
+
 	myMessageBoxEvent *event = new myMessageBoxEvent(
 		MY_MESSAGEBOX, message, caption, style, parent, x, y );
 
@@ -1002,9 +1002,7 @@ int MainFrame::myMessageBox(const wxString &message,
 	event->SetWaiterPtr(&w);
 
 	unique_lock<mutex> lock( w.get_mutex() );
-
 	QueueEvent(event);
-
 	w.sleep(lock);
 
 	return ret;
@@ -1013,6 +1011,9 @@ int MainFrame::myMessageBox(const wxString &message,
 void MainFrame::myMessageBoxDelayed(const wxString &message,
 	const wxString &caption, int style, wxWindow *parent, int x, int y)
 {
+	if (wxThread::IsMain())
+		wxMessageBox(message, caption, style, parent, x, y);
+
 	myMessageBoxEvent *event = new myMessageBoxEvent(
 		MY_MESSAGEBOX, message, caption, style, parent, x, y );
 
