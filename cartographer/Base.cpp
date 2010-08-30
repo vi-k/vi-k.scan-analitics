@@ -37,7 +37,7 @@ Base::Base(wxWindow *parent, const std::wstring &server_addr,
 	, gl_context_(this)
 	, magic_id_(0)
 	, load_texture_debug_counter_(0)
-	, MY_MUTEX_DEF(delete_texture_mutex_,false)
+	, MY_MUTEX_DEF(delete_texture_mutex_,true)
 	, delete_texture_debug_counter_(0)
 	, cache_path_( fs::system_complete(L"cache").string() )
 	, cache_(cache_size)
@@ -1141,6 +1141,7 @@ void Base::repaint()
 	after_repaint(screen_size);
 
 	log << L"repaint() after after_paint()" << log;
+	log << L"repaint() after after_paint() #2" << log;
 
 	glFlush();
 	SwapBuffers();

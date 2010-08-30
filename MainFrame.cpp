@@ -14,6 +14,7 @@ extern my::log main_log;
 extern wxFileConfig *MyConfig;
 
 my::log gps_log(L"gps.log", my::log::clean | my::log::singleline);
+my::log wifi_log(L"wifi.log", my::log::clean | my::log::singleline);
 
 #include <string>
 #include <sstream>
@@ -736,7 +737,7 @@ void MainFrame::GpsTrackerProc(my::worker::ptr this_worker)
 	{
 		main_log << L"GpsTrackerProc()" << main_log;
 
-		int n = snprintf(buf, sizeof(buf) / sizeof(*buf), "pa\r\n");
+		int n = snprintf(buf, sizeof(buf) / sizeof(*buf), "padvt\r\n");
 		if (send(gpsd_sock, buf, n, 0) != n)
 			break;
 
@@ -746,7 +747,6 @@ void MainFrame::GpsTrackerProc(my::worker::ptr this_worker)
 
 		buf[n] = 0;
 
-		posix_time::ptime now = my::time::utc_now();
 		cartographer::coord pt;
 
 		Gps_params_st gps;
@@ -757,7 +757,6 @@ void MainFrame::GpsTrackerProc(my::worker::ptr this_worker)
 
 		if (Gps_test_)
 			strcpy(buf, Gps_test_buf_.c_str());
-			//sprintf(buf, "GPSD,P=48.5 135.1,A=100.0");
 
 		n = sscanf(buf, "GPSD,P=%lf %lf,A=%lf",
 			&pt.lat, &pt.lon, &gps.altitude);
@@ -767,7 +766,11 @@ void MainFrame::GpsTrackerProc(my::worker::ptr this_worker)
 
 		if (n >= 2 && !(pt.lat == 0.0 && pt.lon == 0.0))
 		{
-			bool save = true;
+			posix_time::ptime now;
+
+			const char *ptr = strstr(buf, ",D=");
+			if (ptr)
+				my::time::get(ptr + 3, (size_t)-1, now, 'T');
 
 			if (gps.ok)
 			{
@@ -775,7 +778,7 @@ void MainFrame::GpsTrackerProc(my::worker::ptr this_worker)
 				double distance = cartographer::Inverse(gps.pt, pt, &azimuth) / 1000.0;
 
 				if (distance < 0.001) /* 1m */
-					save = false;
+					now = posix_time::not_a_date_time;
 				else
 				{
 					gps.azimuth = azimuth;
@@ -785,7 +788,7 @@ void MainFrame::GpsTrackerProc(my::worker::ptr this_worker)
 				}
 			}
 
-			if (save)
+			if (!now.is_special())
 			{
 				gps.ok = true;
 				gps.pt = pt;
@@ -887,6 +890,8 @@ void MainFrame::WiFiScanProc(my::worker::ptr this_worker)
 
 		if (sz != 6)
 			continue;
+
+		wifi_log << mac.to_wstring() << wifi_log;
 
 		UpdateWiFiData(mac);
 	}
@@ -1043,5 +1048,9 @@ void MainFrame::OnMapMouseMove(wxMouseEvent& event)
 		char buf[200];
 		sprintf(buf, "GPSD,P=%f %f,A=100.0", pt.lat, pt.lon);
 		Gps_test_buf_ = buf;
+		Gps_test_buf_ += my::time::to_string(
+			my::time::utc_now(), ",D=%Y-%m-%dT%H:%M:%S%fZ");
 	}
+
+	event.Skip(true);
 }
