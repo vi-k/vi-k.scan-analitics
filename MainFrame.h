@@ -13,6 +13,7 @@
 #include "cartographer/Painter.h"
 
 #include <mylib.h>
+#include <limits>
 
 //(*Headers(MainFrame)
 #include <wx/sizer.h>
@@ -255,16 +256,37 @@ class MainFrame: my::employer, public wxFrame
 
 		/* GPS */
 		my::worker::ptr GpsTracker_worker_;
-		cartographer::coord Gps_pt_;
-		double Gps_speed_;
-		double Gps_azimuth_;
-		double Gps_altitude_;
-		bool Gps_ok_;
+		struct Gps_params_st
+		{
+			posix_time::ptime timestamp;
+			cartographer::coord pt;
+			bool ok;
+			double speed;
+			double distance;
+			double azimuth;
+			double altitude;
+			std::wstring test_buf;
+
+			Gps_params_st()
+				: ok(false)
+				, speed( std::numeric_limits<double>::quiet_NaN() )
+				, distance(0.0)
+				, azimuth( std::numeric_limits<double>::quiet_NaN() )
+				, altitude( std::numeric_limits<double>::quiet_NaN() ) {}
+		} Gps_params_;
+
 		bool Gps_test_;
+		std::string Gps_test_buf_;
 		mutex Gps_mutex_;
-		std::wstring Gps_buf_;
 
 		void GpsTrackerProc(my::worker::ptr this_worker);
+
+		template<class T>
+		void copy(const T &src, T *p_dest, mutex &m)
+		{
+			unique_lock<mutex> lock(m);
+			*p_dest = src;
+		}
 
 
 		/*
@@ -301,6 +323,7 @@ class MainFrame: my::employer, public wxFrame
 		void OnGpsAnchor(wxCommandEvent& event);
 		void OnWiFiScan(wxCommandEvent& event);
 		void OnWiFiAnchor(wxCommandEvent& event);
+		void OnMapMouseMove(wxMouseEvent& event);
 		//*)
 
 		void OnMyMessageBox(myMessageBoxEvent& event);

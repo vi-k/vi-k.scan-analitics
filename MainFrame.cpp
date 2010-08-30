@@ -6,7 +6,7 @@
  * Copyright: vi.k ()
  * License:
  **************************************************************/
-bool ppp = false;
+
 #include "MainFrame.h"
 #include "SettingsDialog.h"
 
@@ -139,10 +139,6 @@ MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
 	, yellow_mark_id_(0)
 	, pg_conn_(NULL)
 	, MY_MUTEX_DEF(pg_mutex_,true)
-	, Gps_speed_(0.0)
-	, Gps_azimuth_(0.0)
-	, Gps_altitude_(0.0)
-	, Gps_ok_(false)
 	, Gps_test_(false)
 	, MY_MUTEX_DEF(Gps_mutex_,true)
 {
@@ -308,6 +304,8 @@ MainFrame::MainFrame(wxWindow* parent,wxWindowID id)
 		}
 
 	} /* Создание Картографа */
+
+	Cartographer->Bind(wxEVT_MOTION, &MainFrame::OnMapMouseMove, this, wxID_ANY);
 
 	/* Создаём шрифты */
 	big_font_ = Cartographer->CreateFont(
@@ -564,25 +562,14 @@ void MainFrame::OnMapPaint(double z, const cartographer::size &screen_size)
 	}
 
 
+	/* Gps */
+	Gps_params_st gps;
+	copy(Gps_params_, &gps, Gps_mutex_);
+
+	if (gps.ok && worked(GpsTracker_worker_))
 	{
-		unique_lock<mutex> lock(Gps_mutex_);
-
-		if (Gps_ok_ && worked(GpsTracker_worker_))
-		{
-			cartographer::coord pt = Gps_pt_;
-			double angle = Gps_azimuth_;
-			lock.unlock();
-
-			Cartographer->DrawImage(gps_tracker_id_, pt, 1.0, 1.0, angle);
-		}
-	}
-
-	if (ppp)
-	{
-		Cartographer->DrawText(small_font_,
-			L"TestTestTest", cartographer::point(screen_size) / 2.0,
-			cartographer::color(1.0, 1.0, 0.0),
-			cartographer::ratio(0.5, 0.5), cartographer::ratio(1.0, 1.0));
+		Cartographer->DrawImage(gps_tracker_id_, gps.pt,
+			1.0, 1.0, gps.azimuth);
 	}
 }
 
@@ -596,9 +583,10 @@ void MainFrame::StatusHandler(std::wstring &str)
 		str += L"отключен";
 	else
 	{
-		unique_lock<mutex> lock(Gps_mutex_);
+		Gps_params_st gps;
+		copy(Gps_params_, &gps, Gps_mutex_);
 
-		if (!Gps_ok_)
+		if (!gps.ok)
 			str+= L"ошибка";
 		else
 		{
@@ -609,17 +597,17 @@ void MainFrame::StatusHandler(std::wstring &str)
 			int lat_m, lon_m;
 			double lat_s, lon_s;
 
-			DDToDMS( Gps_pt_,
+			DDToDMS( gps.pt,
 				&lat_sign, &lat_d, &lat_m, &lat_s,
 				&lon_sign, &lon_d, &lon_m, &lon_s );
 
 			__swprintf(buf, sizeof(buf)/sizeof(*buf),
 				L"%s%d°%02d\'%05.2f\" %s%d°%02d\'%05.2f\""
-				L" %0.2fкм/ч %0.1f° %0.1fм (%ls)",
+				L" %0.2fкм/ч %0.1f° %0.1fм %0.1fкм (%ls)",
 				lat_sign < 0 ? L"-" : L"", lat_d, lat_m, lat_s,
 				lon_sign < 0 ? L"-" : L"", lon_d, lon_m, lon_s,
-				Gps_speed_, Gps_azimuth_, Gps_altitude_,
-				Gps_buf_.c_str());
+				gps.speed, gps.azimuth, gps.altitude, gps.distance,
+				gps.test_buf.c_str());
 
 			str += buf;
 		}
@@ -702,8 +690,6 @@ void MainFrame::OnZoomOut(wxCommandEvent& event)
 
 void MainFrame::OnGpsTracker(wxCommandEvent& event)
 {
-	unique_lock<mutex> lock(Gps_mutex_);
-
 	if ( worked(GpsTracker_worker_) )
 	{
 		lets_finish(GpsTracker_worker_);
@@ -753,7 +739,7 @@ void MainFrame::GpsTrackerProc(my::worker::ptr this_worker)
 	{
 		main_log << L"GpsTrackerProc()" << main_log;
 
-		int n = snprintf(buf, sizeof(buf) / sizeof(*buf), "pvta\r\n");
+		int n = snprintf(buf, sizeof(buf) / sizeof(*buf), "pa\r\n");
 		if (send(gpsd_sock, buf, n, 0) != n)
 			break;
 
@@ -763,52 +749,59 @@ void MainFrame::GpsTrackerProc(my::worker::ptr this_worker)
 
 		buf[n] = 0;
 
-		cartographer::coord gps_pt;
-		double gps_speed;
-		double gps_azimuth;
-		double gps_altitude;
-		bool gps_ok;
-		std::string gps_buf(buf);
+		posix_time::ptime now = my::time::utc_now();
+		cartographer::coord pt;
+
+		Gps_params_st gps;
+		copy(Gps_params_, &gps, Gps_mutex_);
+
+		gps.test_buf = my::str::to_wstring(buf);
+		gps_log << gps.test_buf << gps_log;
 
 		if (Gps_test_)
-			sprintf(buf, "GPSD,P=48.5 135.1,V=2.5,T=45.0,A=100.0");
+			strcpy(buf, Gps_test_buf_.c_str());
+			//sprintf(buf, "GPSD,P=48.5 135.1,A=100.0");
 
-		char *ptr = buf;
-		while (*ptr)
+		n = sscanf(buf, "GPSD,P=%lf %lf,A=%lf",
+			&pt.lat, &pt.lon, &gps.altitude);
+
+		if (n < 3)
+			gps.altitude = std::numeric_limits<double>::quiet_NaN();
+
+		if (n >= 2 && !(pt.lat == 0.0 && pt.lon == 0.0))
 		{
-			if (*ptr == '?')
-				*ptr = '0';
-			ptr++;
+			bool save = true;
+
+			if (gps.ok)
+			{
+				double azimuth;
+				double distance = cartographer::Inverse(gps.pt, pt, &azimuth) / 1000.0;
+
+				if (distance < 0.001) /* 1m */
+					save = false;
+				else
+				{
+					gps.azimuth = azimuth;
+					gps.distance += distance;
+					gps.speed = distance
+						/ my::time::div(now - gps.timestamp, posix_time::hours(1));
+				}
+			}
+
+			if (save)
+			{
+				gps.ok = true;
+				gps.pt = pt;
+				gps.timestamp = now;
+			}
+
+			if (Anchor_ == GpsAnchor)
+				Cartographer->MoveTo(pt, cartographer::ratio(0.5, 0.5));
 		}
 
-		n = sscanf(buf, "GPSD,P=%lf %lf,V=%lf,T=%lf,A=%lf",
-			&gps_pt.lat, &gps_pt.lon,
-			&gps_speed, &gps_azimuth, &gps_altitude);
+		copy(gps, &Gps_params_, Gps_mutex_);
 
-		if (n != 5)
-			gps_ok = false;
-		else
-		{
-			gps_ok = !(gps_pt.lat == 0.0 && gps_pt.lon == 0.0);
-			gps_speed *= 1.852; /* Узлы в км/ч */
-		}
-
-		{
-			unique_lock<mutex> lock(Gps_mutex_);
-
-			Gps_ok_ = gps_ok;
-			Gps_pt_ = gps_pt;
-			Gps_speed_ = gps_speed;
-			Gps_azimuth_ = gps_azimuth;
-			Gps_altitude_ = gps_altitude;
-			Gps_buf_ = my::str::to_wstring(gps_buf);
-			gps_log << Gps_buf_ << gps_log;
-		}
-
-		if (gps_ok && Anchor_ == GpsAnchor)
-			Cartographer->MoveTo(gps_pt, cartographer::ratio(0.5, 0.5));
-
-		timed_sleep( this_worker, posix_time::milliseconds(1000) );
+		timed_sleep( this_worker, posix_time::milliseconds(500) );
 	}
 
 	close(gpsd_sock);
@@ -1037,4 +1030,17 @@ void MainFrame::OnMyMessageBox(myMessageBoxEvent& event)
 void MainFrame::OnMapChange(wxCommandEvent &event)
 {
 	Cartographer->SetActiveMapByIndex( event.GetId() );
+}
+
+void MainFrame::OnMapMouseMove(wxMouseEvent& event)
+{
+	if (Gps_test_)
+	{
+		cartographer::point pos( event.GetX(), event.GetY() );
+		cartographer::coord pt = Cartographer->ScreenToCoord(pos);
+
+		char buf[200];
+		sprintf(buf, "GPSD,P=%f %f,A=100.0", pt.lat, pt.lon);
+		Gps_test_buf_ = buf;
+	}
 }
