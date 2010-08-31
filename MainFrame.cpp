@@ -573,7 +573,7 @@ void MainFrame::OnMapPaint(double z, const cartographer::size &screen_size)
 
 void MainFrame::StatusHandler(std::wstring &str)
 {
-	main_log << L"StatusHandler()" << main_log;
+	my::scope sc(L"StatusHandler()");
 
 	str += L" | GPS: ";
 
@@ -628,7 +628,7 @@ void MainFrame::OnIdle(wxIdleEvent& event)
 	static posix_time::ptime start = my::time::utc_now();
 	if (my::time::utc_now() - start > posix_time::milliseconds(100))
 	{
-		main_log << L"OnIdle()" << main_log;
+		my::scope sc(L"OnIdle()");
 		UpdateButtons();
 		start = my::time::utc_now();
 	}
@@ -735,8 +735,6 @@ void MainFrame::GpsTrackerProc(my::worker::ptr this_worker)
 
 	while ( !finish(this_worker) )
 	{
-		main_log << L"GpsTrackerProc()" << main_log;
-
 		int n = snprintf(buf, sizeof(buf) / sizeof(*buf), "padvt\r\n");
 		if (send(gpsd_sock, buf, n, 0) != n)
 			break;
@@ -753,10 +751,13 @@ void MainFrame::GpsTrackerProc(my::worker::ptr this_worker)
 		copy(Gps_params_, &gps, Gps_mutex_);
 
 		gps.test_buf = my::str::to_wstring(buf);
+
 		gps_log << gps.test_buf << gps_log;
 
 		if (Gps_test_)
 			strcpy(buf, Gps_test_buf_.c_str());
+
+		main_log << buf << main_log;
 
 		n = sscanf(buf, "GPSD,P=%lf %lf,A=%lf",
 			&pt.lat, &pt.lon, &gps.altitude);
@@ -879,11 +880,16 @@ void MainFrame::WiFiScanProc(my::worker::ptr this_worker)
 
 	while ( !finish(this_worker) )
 	{
-		main_log << L"WiFiScanProc()" << main_log;
-
 		macaddr mac;
+		int sz;
 
-		int sz = recv(wifi_sock, mac.mac(), 6, 0);
+		{
+			my::scope sc(L"recv()", L"WiFiScanProc():");
+			sz = recv(wifi_sock, mac.mac(), 6, 0);
+			sc.add(L" sz=" + my::num::to_wstring(sz));
+			if (sz == 6)
+				sc.add(L" mac=" + mac.to_wstring());
+		}
 
 		if (sz == -1)
 			break;
@@ -901,6 +907,8 @@ void MainFrame::WiFiScanProc(my::worker::ptr this_worker)
 
 void MainFrame::UpdateWiFiData(const macaddr &mac)
 {
+	my::scope sc(L"UpdateWiFiData()");
+
 	if (!PgConnect())
 		return;
 

@@ -37,7 +37,7 @@ bool scan_analiticsApp::OnInit()
 	wxHandleFatalExceptions(true);
 	#endif
 
-	main_log << L"Start" << main_log;
+	main_log << L"App::OnInit()" << main_log;
 
 	/* Открываем файл настроек */
 	{
@@ -64,7 +64,7 @@ int scan_analiticsApp::OnExit()
 	delete MyConfig;
 	MyConfig = NULL;
 
-	main_log << L"Finish" << main_log;
+	main_log << L"App::OnExit()" << main_log;
 	return 0;
 }
 
