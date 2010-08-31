@@ -25,7 +25,7 @@
 
 wxFileConfig *MyConfig = NULL;
 
-my::log main_log(L"main.log", my::log::clean);
+my::log main_log(L"main.log", my::log::clean | my::log::nothreadid);
 
 IMPLEMENT_APP(scan_analiticsApp);
 

@@ -13,8 +13,8 @@
 extern my::log main_log;
 extern wxFileConfig *MyConfig;
 
-my::log gps_log(L"gps.log", my::log::clean | my::log::singleline);
-my::log wifi_log(L"wifi.log", my::log::clean | my::log::singleline);
+my::log gps_log(L"gps.log", my::log::clean | my::log::single | my::log::nothread);
+my::log wifi_log(L"wifi.log", my::log::clean | my::log::single | my::log::nothread);
 
 #include <string>
 #include <sstream>
